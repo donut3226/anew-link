@@ -1,6 +1,6 @@
 # Wena 3 iOS Companion App - Plan
 
-Last updated: 7 November 2026 (protocol spec, Codeberg review and Claude Code getting-started guide added)
+Last updated: 8 November 2026 (status and next steps added in section 14)
 
 Companion document: `claude/wena3-protocol-spec.md` (the BLE protocol facts extracted from Gadgetbridge). Read it alongside this plan.
 
@@ -161,7 +161,32 @@ You still need **Xcode** for the simulator, signing and running on the iPhone. C
 - #6428, #3338, #3359: Wena-related reports, titles only reviewed
 - #6643: Head Linkage (Seiko/WIRED) commands, out of scope for v1
 
-## 14. Sources
+## 14. Status and next steps (end of 8 Nov 2026)
+
+App: **Buckle Link** (working name, a better one is wanted), repo `donut3226/buckle-link` (private, MIT). Runs on the owner's iPhone 17 Pro from Xcode with a free Personal Team. Details of every hardware result are in spec section 13.
+
+**Working on the real band:**
+- Read firmware (2.40JP), serial and battery
+- Time sync (proven via activity timestamps)
+- 5-day weather from Open-Meteo, plus automatic weather and time updates when the app opens (due if from another day, over 3 h old, or the time zone changed)
+- Step sync and saving to Apple Health (no duplicates)
+- Song title from Apple Music on the band's music screen, answered in the background when the band sends a type 11 request, including with the phone locked
+- Listening for band requests on 4002 (saved debug log), auto-reconnect, Bluetooth background mode
+- No app needed: notifications (ANCS), media buttons, volume, camera shutter
+
+**Waiting:**
+- **Overnight band-request log** (Debug only > Band requests > Share log). It tells us how often the band sends type 0 (sync tick) and whether it sends type 3 (get weather). That decides the next step.
+- **Heart rate**: built, but untested until the band is worn. Options: Apple Watch lug adapters (also gives reference data in Health), a cheap watch head, or the Omega once a good strap fit is found.
+
+**Next steps, in order:**
+1. Analyse the overnight log and design **background syncing without opening the app**: answer type 3 with weather, run activity sync and queue the Health save (Health is locked while the phone is locked) on type 0, add state restoration so iOS relaunches the app, reuse the last location in the background, and add iOS background refresh as a backup.
+2. **App name** and **app icon** (original artwork, no Sony or Wena marks).
+3. Remaining spec extraction (calendar, alarms, display and other settings), then calendar sync.
+4. Phase 4 polish: demo mode for App Review, privacy policy (Health, location, Apple Music), TestFlight.
+
+**Known constraints:** force-quitting the app stops background wake-ups until it's opened again; after a reboot, open it once; WeatherKit needs the paid developer program (hence Open-Meteo); payments (Suica, iD, QUICPay) and Alexa can't come back.
+
+## 15. Sources
 
 - Sony Japan service-end notice: https://www.sony.jp/support/smartwatch/info/20241128-service.html
 - Sony Japan support page: https://www.sony.jp/support/smartwatch/

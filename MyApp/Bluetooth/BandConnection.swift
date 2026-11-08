@@ -38,6 +38,8 @@ final class BandConnection: NSObject {
     /// What came back from an activity sync.
     struct ActivitySyncResult: Equatable {
         let summary: ActivitySummary
+        /// Every sample received, so they can be saved to Apple Health afterwards.
+        let samples: [ActivitySample]
         let syncedAt: Date
         let packetCount: Int
         let badCRCCount: Int
@@ -232,6 +234,7 @@ final class BandConnection: NSObject {
 
     private func result(from assembler: ActivityStreamAssembler, receivedFinish: Bool) -> ActivitySyncResult {
         ActivitySyncResult(summary: ActivitySummary(samples: assembler.samples, now: activityStartedAt),
+                           samples: assembler.samples,
                            syncedAt: activityStartedAt,
                            packetCount: assembler.packetCount,
                            badCRCCount: assembler.badCRCCount,

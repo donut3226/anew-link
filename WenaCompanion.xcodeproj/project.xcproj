@@ -34,6 +34,7 @@
         "resources",
       ],
       "build-settings": {
+        "CODE_SIGN_ENTITLEMENTS": "Config/MyApp.entitlements",
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "DEVELOPMENT_TEAM": "58867JL364",
@@ -43,6 +44,7 @@
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_KEY_CFBundleDisplayName": "Wena Companion",
         "INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription": "Buckle Link uses Bluetooth to read information such as firmware version and battery level from your band.",
+        "INFOPLIST_KEY_NSHealthUpdateUsageDescription": "Buckle Link saves steps and heart rate from your band to Apple Health.",
         "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": "Buckle Link uses your approximate location to get the weather forecast for your band.",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "YES",

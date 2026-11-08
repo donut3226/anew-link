@@ -1,0 +1,95 @@
+import Foundation
+import HealthKit
+import Observation
+
+/// Saves band steps and heart rate to Apple Health. Write-only: it never reads Health data.
+@Observable
+final class HealthSync {
+
+    enum Status: Equatable {
+        case idle
+        case asking   // waiting for the Health permission popup
+        case saving
+        /// `notAllowed` counts records skipped because that type wasn't allowed in the popup.
+        case done(steps: Int, heartRates: Int, notAllowed: Int)
+        case failed(String)
+    }
+
+    private(set) var status: Status = .idle
+
+    @ObservationIgnored private let store = HKHealthStore()
+
+    private static let stepType = HKQuantityType(.stepCount)
+    private static let heartRateType = HKQuantityType(.heartRate)
+
+    var isBusy: Bool {
+        status == .asking || status == .saving
+    }
+
+    /// - Parameters:
+    ///   - samples: from the last activity sync.
+    ///   - firmware: the band's firmware name, stored with each sample so Health shows which device it came from.
+    func save(_ samples: [ActivitySample], firmware: String?) async {
+        guard !isBusy else { return }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            status = .failed("Apple Health isn't available on this device.")
+            return
+        }
+        let records = HealthRecords.make(from: samples)
+        guard !records.isEmpty else {
+            status = .done(steps: 0, heartRates: 0, notAllowed: 0)
+            return
+        }
+
+        do {
+            status = .asking
+            // Shows the Health popup the first time. "read: []" because we never read.
+            try await store.requestAuthorization(toShare: [Self.stepType, Self.heartRateType], read: [])
+
+            let allowed = records.filter { store.authorizationStatus(for: Self.type(for: $0.kind)) == .sharingAuthorized }
+            guard !allowed.isEmpty else {
+                status = .failed("Buckle Link isn't allowed to save to Health. Turn it on in Health > Profile > Apps > Buckle Link.")
+                return
+            }
+
+            status = .saving
+            let device = HKDevice(name: "Wena 3", manufacturer: "Sony", model: WenaGATT.advertisedName,
+                                  hardwareVersion: nil, firmwareVersion: firmware, softwareVersion: nil,
+                                  localIdentifier: nil, udiDeviceIdentifier: nil)
+            try await store.save(allowed.map { Self.sample(for: $0, device: device) })
+
+            status = .done(steps: allowed.filter { $0.kind == .steps }.count,
+                           heartRates: allowed.filter { $0.kind == .heartRate }.count,
+                           notAllowed: records.count - allowed.count)
+        } catch {
+            status = .failed("Couldn't save to Health. \(error.localizedDescription)")
+        }
+    }
+
+    private static func type(for kind: HealthRecord.Kind) -> HKQuantityType {
+        switch kind {
+        case .steps: stepType
+        case .heartRate: heartRateType
+        }
+    }
+
+    /// Turns our plain record into a HealthKit sample.
+    private static func sample(for record: HealthRecord, device: HKDevice) -> HKQuantitySample {
+        let unit: HKUnit = switch record.kind {
+        case .steps: .count()
+        case .heartRate: .count().unitDivided(by: .minute())   // beats per minute
+        }
+        return HKQuantitySample(
+            type: type(for: record.kind),
+            quantity: HKQuantity(unit: unit, doubleValue: record.value),
+            start: record.start,
+            end: record.end,
+            device: device,
+            // The sync identifier and version make Health replace a minute instead of duplicating it.
+            metadata: [
+                HKMetadataKeySyncIdentifier: record.syncIdentifier,
+                HKMetadataKeySyncVersion: record.syncVersion,
+            ]
+        )
+    }
+}

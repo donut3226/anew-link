@@ -9,6 +9,7 @@ struct BandStatusView: View {
     // @State keeps the same BandConnection alive while this screen is on display.
     @State private var connection = BandConnection()
     @State private var weatherSync = WeatherSync()
+    @State private var healthSync = HealthSync()
 
     var body: some View {
         BandStatusContent(
@@ -19,13 +20,19 @@ struct BandStatusView: View {
             weather: weatherSync.status,
             activity: connection.activity,
             rawActivityHex: Self.hex(connection.rawActivityPackets),
-            isBusy: connection.isSending || weatherSync.isBusy || connection.activity.inProgress,
+            health: healthSync.status,
+            isBusy: connection.isSending || weatherSync.isBusy || connection.activity.inProgress || healthSync.isBusy,
             onRefresh: { connection.refresh() },
             onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) },
             // Task { } starts async work (location, then internet) without blocking the screen.
             onSendWeather: { Task { await weatherSync.sendForecast(using: connection) } },
             onSendTestWeather: { weatherSync.sendTestPattern(using: connection) },
-            onSyncActivity: { connection.syncActivity() }
+            onSyncActivity: { connection.syncActivity() },
+            onSaveToHealth: {
+                guard case .done(let result) = connection.activity else { return }
+                let firmware = connection.info?.firmwareName
+                Task { await healthSync.save(result.samples, firmware: firmware) }
+            }
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
@@ -48,6 +55,7 @@ struct BandStatusContent: View {
     var activity: BandConnection.ActivityStatus = .idle
     /// Raw activity packets as hex text (debug share button only).
     var rawActivityHex = ""
+    var health: HealthSync.Status = .idle
     /// True while anything is being sent, so only one send runs at a time.
     var isBusy = false
     let onRefresh: () -> Void
@@ -56,6 +64,7 @@ struct BandStatusContent: View {
     var onSendWeather: () -> Void = {}
     var onSendTestWeather: () -> Void = {}
     var onSyncActivity: () -> Void = {}
+    var onSaveToHealth: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -255,6 +264,35 @@ struct BandStatusContent: View {
             LabeledContent("Packets",
                            value: "\(result.packetCount), \(result.badCRCCount) CRC errors, \(result.receivedFinish ? "finished" : "timed out")")
             #endif
+            Button("Save to Apple Health", action: onSaveToHealth)
+                .disabled(isBusy)
+            healthRow
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var healthRow: some View {
+        switch health {
+        case .idle:
+            EmptyView()
+        case .asking:
+            busyRow("Waiting for Health permission…")
+        case .saving:
+            busyRow("Saving to Health…")
+        case .done(let steps, let heartRates, let notAllowed):
+            VStack(alignment: .leading, spacing: 4) {
+                Label("Saved \(steps) step minutes and \(heartRates) heart-rate readings",
+                      systemImage: "heart.circle.fill")
+                    .foregroundStyle(.green)
+                if notAllowed > 0 {
+                    Text("\(notAllowed) not saved: that type isn't allowed in Health > Profile > Apps > Buckle Link.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
@@ -372,8 +410,9 @@ struct BandStatusContent: View {
         state: .connected,
         info: BandInfo(firmwareName: "2.40PR", serialNumber: 0),
         batteryPercent: 80,
-        activity: .done(.init(summary: ActivitySummary(samples: samples, now: now),
+        activity: .done(.init(summary: ActivitySummary(samples: samples, now: now), samples: samples,
                               syncedAt: now, packetCount: 42, badCRCCount: 0, receivedFinish: true)),
+        health: .done(steps: 30, heartRates: 30, notAllowed: 0),
         onRefresh: {})
 }
 

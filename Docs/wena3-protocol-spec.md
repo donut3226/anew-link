@@ -225,4 +225,8 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
 - **Battery (1521):** byte 0 read as 66%, a plausible value. Not yet compared closely with the band's own display. Whether further bytes encode charging state is still **UNVERIFIED**.
 - **ANCS unaffected:** iPhone notifications still reach the band after the app connected, read and disconnected.
 
+- **Time sync (first write, commit `565c595`):** set time (`0x10`) and set time zone (`0x11`, +10:30 or +11:00 local) written to 1514 one after the other, user-triggered. The band **accepted both writes with no error** and stayed connected. Notifications kept working.
+  - **Effect not yet observed.** The Wena 3 band has no clock display (the watch head shows the time), so neither a normal sync nor the debug "+5 min" test can be seen on the band. Treat the timestamp encoding as accepted but not yet proven. Verify it through activity-sync timestamps (section 7) or an alarm firing on time, once those are implemented.
+  - There is no known way to set the time on the band itself, so the phone app is the only way to correct the band's clock.
+
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

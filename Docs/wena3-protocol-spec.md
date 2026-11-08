@@ -242,4 +242,6 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
   - **No heart-rate samples** came back (either none sent, or all zero, which we skip as "no reading"). The band had not been worn, so there was no heart rate to record. Heart-rate decoding is still unverified: re-test after wearing the band.
   - "Since now" for the six undecoded types worked as hoped: nothing extra was streamed. Notifications kept working.
 
+- **Media buttons and camera shutter (no app involved), 8 Nov 2026:** over the band's existing iOS Bluetooth pairing, the band's music screen controls Apple Music play/pause, next, previous and volume, and the band's "open camera" action sends a volume-key press. That **takes a photo in the iPhone Camera app** and changes the volume anywhere else. This answers the "unknown on iPhone" note in section 1: the media-button profile works on iOS with no companion app. These presses go straight to iOS and **never appear on 4002**, so our app can't see them. Alexa actions produce nothing, since that service ran through Sony's and Amazon's servers.
+
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

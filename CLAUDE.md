@@ -58,7 +58,13 @@ Run one test: add `'-only-testing:MyAppTests/BandInfoParserTests/serialIsSigned(
 
 - The project file is Xcode 27's JSON-style `project.xcproj`. The `MyApp/` folder is a synchronized folder (`"kind": "folder"`), so new Swift files placed under `MyApp/` join the target automatically - no project file edits needed.
 - Build settings that affect code: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (types are main-actor by default; mark BLE/background work `nonisolated` or use actors explicitly), `SWIFT_APPROACHABLE_CONCURRENCY = YES`, Swift language mode 5.0, iOS deployment target 27.2. Info.plist is generated (`GENERATE_INFOPLIST_FILE`), so usage descriptions such as `NSBluetoothAlwaysUsageDescription` and background modes go in as `INFOPLIST_KEY_*` build settings / target capabilities.
-- Current code is the Xcode template (`MyApp/MyApp.swift`, `MyApp/ContentView.swift`).
+- `SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY` is on: a file must import every module whose members it uses (for example `import CoreLocation` to read `CLLocation.coordinate`), even if another file already imports it.
+
+## Code structure
+
+- `MyApp/Bluetooth/`: `WenaGATT` (UUIDs), pure `nonisolated` byte code (`BandInfoParser`, `WenaPackets`, `WenaWeather`), and `BandConnection` (CoreBluetooth). **Every write to the band goes through `BandConnection.send(_:to:completion:)`**, one send at a time and only from a user action. Keep it that way.
+- `MyApp/Weather/`: `LocationProvider` (one-shot approximate location), `OpenMeteoClient` (keyless forecast API, coordinates rounded to 2 decimals), and `WeatherSync`, which runs location -> forecast -> packet -> `BandConnection.sendWeather`.
+- `MyApp/BandStatusView.swift`: `BandStatusView` owns the objects; `BandStatusContent` takes plain values so previews need no Bluetooth. Test buttons that send made-up data live under `#if DEBUG` only.
 
 ## Protocol essentials (details in the spec)
 

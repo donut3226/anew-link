@@ -26,4 +26,10 @@ nonisolated enum WenaGATT {
 
     /// Characteristic 1521 (read): battery level.
     static let stateCharacteristic = uuid("1521")
+
+    /// Service 4001: the "notification" service, used for weather, calendar and music text.
+    static let notificationService = uuid("4001")
+
+    /// Characteristic 4002 (write): weather and other data shown on the band.
+    static let notificationCharacteristic = uuid("4002")
 }

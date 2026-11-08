@@ -43,6 +43,7 @@
         "GENERATE_INFOPLIST_FILE": "YES",
         "INFOPLIST_KEY_CFBundleDisplayName": "Wena Companion",
         "INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription": "Buckle Link uses Bluetooth to read information such as firmware version and battery level from your band.",
+        "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": "Buckle Link uses your approximate location to get the weather forecast for your band.",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "YES",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]": "YES",

@@ -8,6 +8,7 @@ import SwiftUI
 struct BandStatusView: View {
     // @State keeps the same BandConnection alive while this screen is on display.
     @State private var connection = BandConnection()
+    @State private var weatherSync = WeatherSync()
 
     var body: some View {
         BandStatusContent(
@@ -15,8 +16,13 @@ struct BandStatusView: View {
             info: connection.info,
             batteryPercent: connection.batteryPercent,
             timeSync: connection.timeSync,
+            weather: weatherSync.status,
+            isBusy: connection.isSending || weatherSync.isBusy,
             onRefresh: { connection.refresh() },
-            onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) }
+            onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) },
+            // Task { } starts async work (location, then internet) without blocking the screen.
+            onSendWeather: { Task { await weatherSync.sendForecast(using: connection) } },
+            onSendTestWeather: { weatherSync.sendTestPattern(using: connection) }
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
@@ -28,9 +34,14 @@ struct BandStatusContent: View {
     let info: BandInfo?
     let batteryPercent: Int?
     var timeSync: BandConnection.TimeSyncStatus = .idle
+    var weather: WeatherSync.Status = .idle
+    /// True while anything is being sent, so only one send runs at a time.
+    var isBusy = false
     let onRefresh: () -> Void
     /// Called with how many seconds to add to the time sent: 0 normally, 300 for the debug test.
     var onSyncTime: (TimeInterval) -> Void = { _ in }
+    var onSendWeather: () -> Void = {}
+    var onSendTestWeather: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -51,8 +62,18 @@ struct BandStatusContent: View {
 
                     Section("Time") {
                         Button("Sync time") { onSyncTime(0) }
-                            .disabled(timeSync == .sending)
+                            .disabled(isBusy)
                         timeSyncRow
+                    }
+
+                    Section {
+                        Button("Send weather", action: onSendWeather)
+                            .disabled(isBusy)
+                        weatherRow
+                    } header: {
+                        Text("Weather")
+                    } footer: {
+                        Text("Uses your approximate location. Weather data by Open-Meteo.com")
                     }
 
                     // #if DEBUG: this section only exists in builds run from Xcode,
@@ -60,11 +81,13 @@ struct BandStatusContent: View {
                     #if DEBUG
                     Section {
                         Button("Test: set band 5 min fast") { onSyncTime(5 * 60) }
-                            .disabled(timeSync == .sending)
+                            .disabled(isBusy)
+                        Button("Test: send test weather", action: onSendTestWeather)
+                            .disabled(isBusy)
                     } header: {
                         Text("Debug only")
                     } footer: {
-                        Text("Proves the time packet works. Tap Sync time afterwards to put the band's clock right.")
+                        Text("5 min fast: tap Sync time afterwards to put the band's clock right. Test weather: 5 days of sunny 25, cloudy 20, rain 15, heavy rain 10 and snow 0 C maximums.")
                     }
                     #endif
                 }
@@ -147,6 +170,51 @@ struct BandStatusContent: View {
         }
     }
 
+    @ViewBuilder
+    private var weatherRow: some View {
+        switch weather {
+        case .idle:
+            EmptyView()
+        case .locating:
+            busyRow("Finding your location…")
+        case .fetching:
+            busyRow("Getting the forecast…")
+        case .sending:
+            busyRow("Sending to the band…")
+        case .done(let today, let at):
+            let time = at.formatted(date: .omitted, time: .shortened)
+            if let today {
+                Label("Sent at \(time). Today: \(Self.describe(today.wenaDay)), \(Self.degrees(today.minCelsius)) to \(Self.degrees(today.maxCelsius))",
+                      systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Label("Test weather sent at \(time)", systemImage: "testtube.2")
+                    .foregroundStyle(.orange)
+            }
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
+    /// Plain-words name for what the band will show, for example "sunny with cloud".
+    private static func describe(_ day: WenaWeatherDay) -> String {
+        func name(_ condition: WenaCondition) -> String {
+            switch condition {
+            case .sunny: "sunny"
+            case .cloudy: "cloudy"
+            case .rain: "rain"
+            case .heavyRain: "heavy rain"
+            case .snow: "snow"
+            }
+        }
+        return day.main == day.sub ? name(day.main) : "\(name(day.main)) / \(name(day.sub))"
+    }
+
+    private static func degrees(_ celsius: Double) -> String {
+        "\(Int(celsius.rounded())) C"
+    }
+
     private func busyRow(_ text: String) -> some View {
         HStack(spacing: 12) {
             ProgressView()
@@ -194,6 +262,25 @@ struct BandStatusContent: View {
                       info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
                       batteryPercent: 80,
                       timeSync: .failed("The band didn't accept the time."),
+                      onRefresh: {})
+}
+
+#Preview("Weather sent") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
+                      batteryPercent: 80,
+                      weather: .done(today: DailyForecast(day: "2026-01-01", weatherCode: 2,
+                                                          minCelsius: 12, maxCelsius: 21),
+                                     at: .now),
+                      onRefresh: {})
+}
+
+#Preview("Weather busy") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
+                      batteryPercent: 80,
+                      weather: .fetching,
+                      isBusy: true,
                       onRefresh: {})
 }
 

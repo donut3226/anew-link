@@ -62,7 +62,8 @@ Run one test: add `'-only-testing:MyAppTests/BandInfoParserTests/serialIsSigned(
 
 ## Code structure
 
-- `MyApp/Bluetooth/`: `WenaGATT` (UUIDs), pure `nonisolated` byte code (`BandInfoParser`, `WenaPackets`, `WenaWeather`), and `BandConnection` (CoreBluetooth). **Every write to the band goes through `BandConnection.send(_:to:completion:)`**, one send at a time and only from a user action. Keep it that way.
+- `MyApp/Bluetooth/`: `WenaGATT` (UUIDs), pure `nonisolated` byte code (`BandInfoParser`, `WenaPackets`, `WenaWeather`, `WenaCRC16`, `WenaActivity` with `ActivityStreamAssembler`, `ActivitySummary`), and `BandConnection` (CoreBluetooth). **Every packet write to the band goes through `BandConnection.send(_:to:completion:)`**, one send at a time and only from a user action. The only other write is `setNotifyValue` on 3002 inside `syncActivity`, switched off again in `endActivity`. Keep it that way.
+- Extensions of `nonisolated` types (for example `extension WenaPackets`) must also be written `nonisolated extension`, or their members default to the main actor.
 - `MyApp/Weather/`: `LocationProvider` (one-shot approximate location), `OpenMeteoClient` (keyless forecast API, coordinates rounded to 2 decimals), and `WeatherSync`, which runs location -> forecast -> packet -> `BandConnection.sendWeather`.
 - `MyApp/BandStatusView.swift`: `BandStatusView` owns the objects; `BandStatusContent` takes plain values so previews need no Bluetooth. Test buttons that send made-up data live under `#if DEBUG` only.
 

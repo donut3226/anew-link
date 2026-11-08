@@ -17,15 +17,25 @@ struct BandStatusView: View {
             batteryPercent: connection.batteryPercent,
             timeSync: connection.timeSync,
             weather: weatherSync.status,
-            isBusy: connection.isSending || weatherSync.isBusy,
+            activity: connection.activity,
+            rawActivityHex: Self.hex(connection.rawActivityPackets),
+            isBusy: connection.isSending || weatherSync.isBusy || connection.activity.inProgress,
             onRefresh: { connection.refresh() },
             onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) },
             // Task { } starts async work (location, then internet) without blocking the screen.
             onSendWeather: { Task { await weatherSync.sendForecast(using: connection) } },
-            onSendTestWeather: { weatherSync.sendTestPattern(using: connection) }
+            onSendTestWeather: { weatherSync.sendTestPattern(using: connection) },
+            onSyncActivity: { connection.syncActivity() }
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
+    }
+
+    /// One packet per line, as hex bytes, for the debug share button.
+    private static func hex(_ packets: [Data]) -> String {
+        packets
+            .map { packet in packet.map { String(format: "%02X", $0) }.joined(separator: " ") }
+            .joined(separator: "\n")
     }
 }
 
@@ -35,6 +45,9 @@ struct BandStatusContent: View {
     let batteryPercent: Int?
     var timeSync: BandConnection.TimeSyncStatus = .idle
     var weather: WeatherSync.Status = .idle
+    var activity: BandConnection.ActivityStatus = .idle
+    /// Raw activity packets as hex text (debug share button only).
+    var rawActivityHex = ""
     /// True while anything is being sent, so only one send runs at a time.
     var isBusy = false
     let onRefresh: () -> Void
@@ -42,6 +55,7 @@ struct BandStatusContent: View {
     var onSyncTime: (TimeInterval) -> Void = { _ in }
     var onSendWeather: () -> Void = {}
     var onSendTestWeather: () -> Void = {}
+    var onSyncActivity: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -76,6 +90,23 @@ struct BandStatusContent: View {
                         Text("Uses your approximate location. Weather data by Open-Meteo.com")
                     }
 
+                    Section {
+                        Button("Sync activity (last 24 h)", action: onSyncActivity)
+                            .disabled(isBusy || info?.supportsActivitySync == false)
+                        activityRows
+                    } header: {
+                        Text("Activity")
+                    } footer: {
+                        switch info?.supportsActivitySync {
+                        case false?:
+                            Text("Activity sync needs band firmware 2.40 or later.")
+                        case nil:
+                            Text("Couldn't read the firmware version. Activity sync needs 2.40 or later.")
+                        case true?:
+                            Text("Steps and heart rate, read from the band. Not saved anywhere yet.")
+                        }
+                    }
+
                     // #if DEBUG: this section only exists in builds run from Xcode,
                     // never in App Store builds.
                     #if DEBUG
@@ -84,6 +115,9 @@ struct BandStatusContent: View {
                             .disabled(isBusy)
                         Button("Test: send test weather", action: onSendTestWeather)
                             .disabled(isBusy)
+                        if !rawActivityHex.isEmpty {
+                            ShareLink("Share raw activity packets", item: rawActivityHex)
+                        }
                     } header: {
                         Text("Debug only")
                     } footer: {
@@ -197,6 +231,49 @@ struct BandStatusContent: View {
         }
     }
 
+    @ViewBuilder
+    private var activityRows: some View {
+        switch activity {
+        case .idle:
+            EmptyView()
+        case .subscribing:
+            busyRow("Asking the band for activity data…")
+        case .receiving(let packets):
+            busyRow("Receiving… \(packets) packets")
+        case .done(let result):
+            let summary = result.summary
+            LabeledContent("Steps today", value: "\(summary.stepsToday)")
+            LabeledContent("Steps, last 24 h", value: "\(summary.stepsLast24Hours)")
+            LabeledContent("Heart rate", value: summary.latestHeartRate.map { bpm in
+                "\(bpm) bpm at \(Self.clock(summary.latestHeartRateAt))"
+            } ?? "No readings")
+            if let low = summary.heartRateMin, let high = summary.heartRateMax {
+                LabeledContent("Heart rate range", value: "\(low)-\(high) bpm")
+            }
+            LabeledContent("Newest sample", value: Self.newestSampleText(summary))
+            #if DEBUG
+            LabeledContent("Packets",
+                           value: "\(result.packetCount), \(result.badCRCCount) CRC errors, \(result.receivedFinish ? "finished" : "timed out")")
+            #endif
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
+    /// "14:32 (2 min before sync)". If the band's clock is ahead, the sample can be "after" the sync.
+    private static func newestSampleText(_ summary: ActivitySummary) -> String {
+        guard let newest = summary.newestSampleAt, let minutes = summary.newestSampleMinutesAgo else {
+            return "None"
+        }
+        let when = minutes >= 0 ? "\(minutes) min before sync" : "\(-minutes) min after sync"
+        return "\(clock(newest)) (\(when))"
+    }
+
+    private static func clock(_ date: Date?) -> String {
+        date?.formatted(date: .omitted, time: .shortened) ?? "?"
+    }
+
     /// Plain-words name for what the band will show, for example "sunny with cloud".
     private static func describe(_ day: WenaWeatherDay) -> String {
         func name(_ condition: WenaCondition) -> String {
@@ -281,6 +358,29 @@ struct BandStatusContent: View {
                       batteryPercent: 80,
                       weather: .fetching,
                       isBusy: true,
+                      onRefresh: {})
+}
+
+#Preview("Activity synced") {
+    let now = Date.now
+    let samples = (0..<60).map { minute in
+        ActivitySample(type: minute.isMultiple(of: 2) ? .steps : .heartRate,
+                       date: now.addingTimeInterval(TimeInterval(-3600 + minute * 60)),
+                       value: minute.isMultiple(of: 2) ? 40 : 70)
+    }
+    return BandStatusContent(
+        state: .connected,
+        info: BandInfo(firmwareName: "2.40PR", serialNumber: 0),
+        batteryPercent: 80,
+        activity: .done(.init(summary: ActivitySummary(samples: samples, now: now),
+                              syncedAt: now, packetCount: 42, badCRCCount: 0, receivedFinish: true)),
+        onRefresh: {})
+}
+
+#Preview("Old firmware") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "2.30PR", serialNumber: 0),
+                      batteryPercent: 80,
                       onRefresh: {})
 }
 

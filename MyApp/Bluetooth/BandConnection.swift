@@ -1,9 +1,10 @@
 import CoreBluetooth
 import Observation
 
-/// Finds the Wena 3 band, reads its info and battery, and sends it time and weather.
-/// Every write goes through `send(_:to:completion:)`, and only happens when the user taps a button.
-/// It never subscribes to updates, and never pairs or unpairs.
+/// Finds the Wena 3 band, reads its info and battery, sends it time and weather, and syncs activity.
+/// Every packet write goes through `send(_:to:completion:)`, and only happens when the user taps a button.
+/// The one other write is the 3002 subscription during `syncActivity`, which is switched off again
+/// when the sync ends. It never pairs or unpairs.
 ///
 /// `@Observable` means SwiftUI watches this object and redraws the screen
 /// whenever `state`, `info` or `batteryPercent` changes.
@@ -34,12 +35,40 @@ final class BandConnection: NSObject {
         case failed(String)
     }
 
+    /// What came back from an activity sync.
+    struct ActivitySyncResult: Equatable {
+        let summary: ActivitySummary
+        let syncedAt: Date
+        let packetCount: Int
+        let badCRCCount: Int
+        /// False if the sync ended because the band went quiet rather than sending "finish".
+        let receivedFinish: Bool
+    }
+
+    enum ActivityStatus: Equatable {
+        case idle
+        case subscribing
+        case receiving(packets: Int)
+        case done(ActivitySyncResult)
+        case failed(String)
+
+        var inProgress: Bool {
+            switch self {
+            case .subscribing, .receiving: true
+            default: false
+            }
+        }
+    }
+
     private(set) var state: State = .starting
     private(set) var info: BandInfo?
     private(set) var batteryPercent: Int?
     private(set) var timeSync: TimeSyncStatus = .idle
+    private(set) var activity: ActivityStatus = .idle
     /// True while any packets are being written, so the screen can disable the send buttons.
     private(set) var isSending = false
+    /// The raw activity packets from the last sync, kept in memory only, for the debug copy button.
+    @ObservationIgnored private(set) var rawActivityPackets: [Data] = []
 
     // @ObservationIgnored: SwiftUI doesn't need to watch these internal helpers.
     @ObservationIgnored private var central: CBCentralManager?
@@ -52,8 +81,14 @@ final class BandConnection: NSObject {
     @ObservationIgnored private var writeTarget: CBUUID?
     /// Called when the current send finishes: nil means success, otherwise an error message.
     @ObservationIgnored private var writeCompletion: ((String?) -> Void)?
+    /// Puts the activity stream back together while a sync is running.
+    @ObservationIgnored private var assembler: ActivityStreamAssembler?
+    @ObservationIgnored private var activityStartedAt = Date()
+    @ObservationIgnored private var activityTimeout: Task<Void, Never>?
 
     private static let scanDuration: Duration = .seconds(15)
+    /// How long the band can go quiet before we treat the activity sync as over.
+    private static let activitySilenceLimit: Duration = .seconds(15)
 
     // MARK: - Called by the screen
 
@@ -75,6 +110,9 @@ final class BandConnection: NSObject {
         stopScan()
         if isSending {
             finishSend(error: "The send was interrupted.")
+        }
+        if activity.inProgress {
+            endActivity(.failed("The activity sync was interrupted."))
         }
         if let band = peripheral {
             peripheral = nil
@@ -116,6 +154,101 @@ final class BandConnection: NSObject {
     /// `completion` gets nil on success, otherwise an error message.
     func sendWeather(_ packet: Data, completion: @escaping (String?) -> Void) {
         send([packet], to: WenaGATT.notificationCharacteristic, completion: completion)
+    }
+
+    // MARK: - Activity sync (spec section 7)
+
+    /// Gets the last 24 hours of steps and heart rate from the band.
+    ///
+    /// Steps: subscribe to 3002 (so the band can stream to us), send requests A and B and start,
+    /// collect the stream, then unsubscribe. Subscribing is the one write that doesn't go through
+    /// `send`, because it's a standard Bluetooth switch rather than a Wena packet.
+    func syncActivity() {
+        guard !isSending, !activity.inProgress else { return }
+        guard state == .connected,
+              let band = peripheral,
+              let stream = characteristic(WenaGATT.activityCharacteristic, in: band) else {
+            activity = .failed("The band isn't ready. Tap Refresh and try again.")
+            return
+        }
+        assembler = ActivityStreamAssembler()
+        rawActivityPackets = []
+        activityStartedAt = Date()
+        activity = .subscribing
+        band.setNotifyValue(true, for: stream)
+        // Continues in peripheral(_:didUpdateNotificationStateFor:error:).
+        restartActivityTimeout()
+    }
+
+    /// Called once the band has confirmed the subscription: send the request packets.
+    private func requestActivity() {
+        let now = WenaPackets.wenaTimestamp(for: activityStartedAt)
+        let dayAgo = WenaPackets.wenaTimestamp(for: activityStartedAt.addingTimeInterval(-24 * 60 * 60))
+        let packets = [
+            // Steps and heart rate from 24 hours ago. Everything else "newer than now", which is nothing.
+            WenaPackets.activityRequestA(steps: dayAgo, heartRate: dayAgo, behaviour: now, vo2: now),
+            WenaPackets.activityRequestB(stress: now, bodyEnergy: now, calories: now, events: now),
+            WenaPackets.activityStart,
+        ]
+        activity = .receiving(packets: 0)
+        send(packets, to: WenaGATT.activityCharacteristic) { [weak self] error in
+            if let error {
+                self?.endActivity(.failed(error))
+            }
+        }
+    }
+
+    /// Handles one notification from 3002.
+    private func handleActivityPacket(_ data: Data) {
+        guard activity.inProgress, var assembler else { return }
+        rawActivityPackets.append(data)
+        let event = assembler.feed(data)
+        self.assembler = assembler
+
+        switch event {
+        case .gap:
+            endActivity(.failed("Some data went missing during the transfer. Tap Sync activity to try again."))
+        case .finished:
+            endActivity(.done(result(from: assembler, receivedFinish: true)))
+        case .accepted, .ignored, .badCRC:
+            activity = .receiving(packets: assembler.packetCount)
+            restartActivityTimeout()
+        }
+    }
+
+    /// If the band goes quiet for too long, finish with what we have (or fail if we got nothing).
+    private func restartActivityTimeout() {
+        activityTimeout?.cancel()
+        activityTimeout = Task { [weak self] in
+            try? await Task.sleep(for: Self.activitySilenceLimit)
+            guard let self, !Task.isCancelled, self.activity.inProgress else { return }
+            if let assembler = self.assembler, !assembler.samples.isEmpty {
+                self.endActivity(.done(self.result(from: assembler, receivedFinish: false)))
+            } else {
+                self.endActivity(.failed("The band didn't send any activity data."))
+            }
+        }
+    }
+
+    private func result(from assembler: ActivityStreamAssembler, receivedFinish: Bool) -> ActivitySyncResult {
+        ActivitySyncResult(summary: ActivitySummary(samples: assembler.samples, now: activityStartedAt),
+                           syncedAt: activityStartedAt,
+                           packetCount: assembler.packetCount,
+                           badCRCCount: assembler.badCRCCount,
+                           receivedFinish: receivedFinish)
+    }
+
+    /// Ends the activity sync and switches the band's "send me updates" setting back off.
+    private func endActivity(_ status: ActivityStatus) {
+        activityTimeout?.cancel()
+        activityTimeout = nil
+        assembler = nil
+        if let band = peripheral,
+           let stream = characteristic(WenaGATT.activityCharacteristic, in: band),
+           stream.isNotifying {
+            band.setNotifyValue(false, for: stream)
+        }
+        activity = status
     }
 
     // MARK: - Writing (the only code that writes to the band)
@@ -183,6 +316,7 @@ final class BandConnection: NSObject {
         info = nil
         batteryPercent = nil
         timeSync = .idle
+        activity = .idle
 
         // Main path: ask iOS which already-connected devices offer the Wena service.
         let connected = central.retrieveConnectedPeripherals(withServices: [WenaGATT.commonService])
@@ -237,6 +371,9 @@ final class BandConnection: NSObject {
         if isSending {
             finishSend(error: "The send was interrupted.")
         }
+        if activity.inProgress {
+            endActivity(.failed("The activity sync was interrupted."))
+        }
     }
 }
 
@@ -272,7 +409,7 @@ extension BandConnection: CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         // Only look for the services we need.
-        peripheral.discoverServices([WenaGATT.commonService, WenaGATT.notificationService])
+        peripheral.discoverServices([WenaGATT.commonService, WenaGATT.notificationService, WenaGATT.activityService])
     }
 
     func centralManager(_ central: CBCentralManager,
@@ -314,6 +451,9 @@ extension BandConnection: CBPeripheralDelegate {
         if let notification = peripheral.services?.first(where: { $0.uuid == WenaGATT.notificationService }) {
             peripheral.discoverCharacteristics([WenaGATT.notificationCharacteristic], for: notification)
         }
+        if let activityService = peripheral.services?.first(where: { $0.uuid == WenaGATT.activityService }) {
+            peripheral.discoverCharacteristics([WenaGATT.activityCharacteristic], for: activityService)
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral,
@@ -333,6 +473,18 @@ extension BandConnection: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral,
                     didUpdateValueFor characteristic: CBCharacteristic,
                     error: Error?) {
+        // Activity stream packets are handled separately, and never logged.
+        if characteristic.uuid == WenaGATT.activityCharacteristic {
+            if let error {
+                if activity.inProgress {
+                    endActivity(.failed("Couldn't receive activity data. \(error.localizedDescription)"))
+                }
+            } else if let data = characteristic.value {
+                handleActivityPacket(data)
+            }
+            return
+        }
+
         if let error {
             fail("Couldn't read from the band. \(error.localizedDescription)")
             return
@@ -348,6 +500,17 @@ extension BandConnection: CBPeripheralDelegate {
             batteryPercent = BandInfoParser.parseBattery(data)
         default:
             break
+        }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral,
+                    didUpdateNotificationStateFor characteristic: CBCharacteristic,
+                    error: Error?) {
+        guard characteristic.uuid == WenaGATT.activityCharacteristic, activity == .subscribing else { return }
+        if let error {
+            endActivity(.failed("The band didn't allow the activity subscription. \(error.localizedDescription)"))
+        } else if characteristic.isNotifying {
+            requestActivity()
         }
     }
 

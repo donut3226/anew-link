@@ -56,7 +56,7 @@ nonisolated enum WenaWeather {
     }
 }
 
-extension WenaPackets {
+nonisolated extension WenaPackets {
 
     /// Weather, 21 bytes: 0x03, then 5 days (today first) of
     /// day condition, night condition, min temp, max temp.

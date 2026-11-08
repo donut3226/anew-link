@@ -32,4 +32,10 @@ nonisolated enum WenaGATT {
 
     /// Characteristic 4002 (write): weather and other data shown on the band.
     static let notificationCharacteristic = uuid("4002")
+
+    /// Service 3001: the activity log service.
+    static let activityService = uuid("3001")
+
+    /// Characteristic 3002 (write requests, notify data stream): activity sync.
+    static let activityCharacteristic = uuid("3002")
 }

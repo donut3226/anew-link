@@ -7,6 +7,22 @@ nonisolated struct BandInfo: Equatable {
     let serialNumber: Int32
 }
 
+nonisolated extension BandInfo {
+
+    /// The number at the start of the firmware name: "2.40JP" gives 2.4.
+    /// nil if the name doesn't start with a readable number.
+    var firmwareVersion: Double? {
+        let numberPart = firmwareName.prefix { $0.isNumber || $0 == "." }
+        return Double(numberPart)
+    }
+
+    /// Activity sync needs firmware 2.40 or later (spec section 11, Gadgetbridge issue #4079).
+    /// nil means we couldn't read the version, so we don't know.
+    var supportsActivitySync: Bool? {
+        firmwareVersion.map { $0 >= 2.4 }
+    }
+}
+
 /// Turns raw bytes from the band into Swift values (spec section 4).
 ///
 /// These functions only look at bytes and never touch Bluetooth,

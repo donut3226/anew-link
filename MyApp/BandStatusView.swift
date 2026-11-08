@@ -112,7 +112,7 @@ struct BandStatusContent: View {
                         case nil:
                             Text("Couldn't read the firmware version. Activity sync needs 2.40 or later.")
                         case true?:
-                            Text("Steps and heart rate, read from the band. Not saved anywhere yet.")
+                            Text("Steps and heart rate, read from the band. Tap Save to Apple Health after a sync to keep them.")
                         }
                     }
 

@@ -239,7 +239,7 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
   - The band sent **5 packets, all with valid CRC-16, ending with a finish packet**. That confirms the sequence, CRC algorithm, kind byte and header layout in section 7 on firmware 2.40JP.
   - Step samples decoded to 48 steps, which **matches the band's own step screen**.
   - **Clock proven:** the newest sample was stamped 6:12 pm local time for a sync at 6:13 pm. So the band's clock (set by our `0x10`/`0x11` time sync, after the +5 min test) is right, and activity timestamps are Wena timestamps in **UTC**, shown in local time once decoded.
-  - **No heart-rate samples** came back (either none sent, or all zero, which we skip as "no reading"). Not yet known whether the band had recorded any heart rate in that window. Check the raw packets.
+  - **No heart-rate samples** came back (either none sent, or all zero, which we skip as "no reading"). The band had not been worn, so there was no heart rate to record. Heart-rate decoding is still unverified: re-test after wearing the band.
   - "Since now" for the six undecoded types worked as hoped: nothing extra was streamed. Notifications kept working.
 
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

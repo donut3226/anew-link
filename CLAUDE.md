@@ -37,14 +37,22 @@ The owner is a first-time iOS developer: **explain Swift/SwiftUI/iOS concepts as
 
 ## Build and run
 
-Xcode 27.2. Single project `WenaCompanion.xcodeproj`, single target and scheme `MyApp` (display name "Wena Companion"). No test target exists yet.
+Xcode 27.2. Single project `WenaCompanion.xcodeproj`, app target `MyApp` (display name "Wena Companion") and unit-test target `MyAppTests` (Swift Testing, hosted in the app), both in the shared scheme `MyApp` (`xcshareddata/xcschemes/MyApp.xcscheme`).
 
 ```bash
 xcodebuild -project WenaCompanion.xcodeproj -scheme MyApp -destination 'generic/platform=iOS Simulator' build
 ```
 
-- The simulator has **no Bluetooth**. BLE features must be tested on a real iPhone (Developer Mode on, run from Xcode). Pure logic (CRC-16, Wena timestamp conversion, packet builders/parsers) should be unit-tested so it can be checked against the spec without a band; adding a test target is needed first.
-- When a test target exists, run a single test with `xcodebuild test ... -only-testing:<TestTarget>/<TestClass>/<testMethod>`.
+Run all tests (an "iPhone 17" simulator exists on this Mac):
+
+```bash
+xcodebuild test -project WenaCompanion.xcodeproj -scheme MyApp -destination 'platform=iOS Simulator,name=iPhone 17'
+```
+
+Run one test: add `'-only-testing:MyAppTests/BandInfoParserTests/serialIsSigned()'`. Swift Testing names need the `()`; without it xcodebuild silently runs zero tests and still reports `TEST SUCCEEDED`.
+
+- The simulator has **no Bluetooth**. BLE features must be tested on a real iPhone (Developer Mode on, run from Xcode). Pure logic (CRC-16, Wena timestamp conversion, packet builders/parsers) goes in `nonisolated` types with unit tests in `MyAppTests/`, checked against the spec without a band. Test data must be made up, never the real band's serial.
+- New test files placed in `MyAppTests/` join the test target automatically (synchronized folder). In `project.xcproj` the test target uses `"product-type": "bundle.unit-test"`, `"test-host-target": "MyApp"`, plus `TEST_HOST`/`BUNDLE_LOADER` build settings; without those the test bundle fails to link.
 
 ## Project configuration notes
 

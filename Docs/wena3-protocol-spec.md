@@ -214,3 +214,15 @@ Defaults the reporter observed: A short = start or stop timer, A long = timer sc
 Sequence the reporter used to enable and pair: enable, indicator, the four button mappings, the notification-hands packet, then put the head into pairing mode and pair from the band's menu.
 
 Caution for us: these share the control characteristic with the settings in section 4. Do not experiment with them unless the owner actually has a compatible head, and treat any write we do not understand as potentially changing band behaviour.
+
+## 13. Confirmed on our band (8 Nov 2026)
+
+Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhone 17 Pro, with the owner's band already bonded to that iPhone. No writes, no subscriptions, no pairing changes.
+
+- **Finding the band:** `retrieveConnectedPeripherals(withServices:)` with service 1501 returns the bonded band. The scan fallback was not needed. Connecting from the app caused **no pairing prompt**.
+- **GATT layout:** service 1501 with characteristics 1520 and 1521 exists as in section 1, and both can be read.
+- **Device info (1520):** layout in section 4 confirmed. Bytes 0-7 decode to the ASCII firmware name `2.40JP` (matches the band's own screen), and bytes 8-11 as a little-endian int32 give a plausible serial number. The serial is deliberately not recorded here.
+- **Battery (1521):** byte 0 read as 66%, a plausible value. Not yet compared closely with the band's own display. Whether further bytes encode charging state is still **UNVERIFIED**.
+- **ANCS unaffected:** iPhone notifications still reach the band after the app connected, read and disconnected.
+
+Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

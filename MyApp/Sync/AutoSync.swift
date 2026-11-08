@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Decides when the band needs fresh weather (and the time, which is sent with it).
 /// Pure, so the rule can be unit-tested.
@@ -22,6 +23,7 @@ nonisolated enum WeatherSchedule {
 
 /// Sends time and weather by itself when the app connects or comes back to the screen,
 /// but only when `WeatherSchedule` says it's due, and only if the user's switch is on.
+@Observable
 final class AutoSync {
 
     /// The settings key for the on/off switch (also used by `@AppStorage` in the screen).
@@ -29,8 +31,16 @@ final class AutoSync {
     private static let lastSentKey = "autoSync.lastSent"
     private static let lastOffsetKey = "autoSync.lastOffset"
 
-    private let defaults = UserDefaults.standard
-    private var isRunning = false
+    /// When the last successful automatic update happened (saved, so it survives the app closing).
+    /// Shown on screen, so you can tell "nothing was due" apart from "it never ran".
+    private(set) var lastUpdate: Date?
+
+    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private var isRunning = false
+
+    init() {
+        lastUpdate = defaults.object(forKey: Self.lastSentKey) as? Date
+    }
 
     /// On unless the user has switched it off.
     var isEnabled: Bool {
@@ -65,5 +75,6 @@ final class AutoSync {
         // Only a successful update counts, so a failure is retried next time.
         defaults.set(now, forKey: Self.lastSentKey)
         defaults.set(offset, forKey: Self.lastOffsetKey)
+        lastUpdate = now
     }
 }

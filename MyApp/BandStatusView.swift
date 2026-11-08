@@ -29,6 +29,7 @@ struct BandStatusView: View {
             isBusy: connection.isSending || weatherSync.isBusy || connection.activity.inProgress || healthSync.isBusy,
             onRefresh: { connection.refresh() },
             autoUpdate: $autoUpdate,
+            lastAutoUpdate: autoSync.lastUpdate,
             // Task { } starts async work (Bluetooth, location, internet) without blocking the screen.
             onSyncTime: { offset in Task { await connection.syncTime(offsetSeconds: offset) } },
             onSendWeather: { Task { await weatherSync.sendForecast(using: connection) } },
@@ -84,6 +85,7 @@ struct BandStatusContent: View {
     /// Called with how many seconds to add to the time sent: 0 normally, 300 for the debug test.
     /// A Binding lets this view change a value owned by its parent (the switch's on/off).
     var autoUpdate: Binding<Bool> = .constant(true)
+    var lastAutoUpdate: Date?
     var onSyncTime: (TimeInterval) -> Void = { _ in }
     var onSendWeather: () -> Void = {}
     var onSendTestWeather: () -> Void = {}
@@ -109,6 +111,8 @@ struct BandStatusContent: View {
 
                     Section {
                         Toggle("Update weather and time automatically", isOn: autoUpdate)
+                        LabeledContent("Last automatic update",
+                                       value: lastAutoUpdate.map { Self.dayAndTime($0) } ?? "Not yet")
                     } header: {
                         Text("Automatic updates")
                     } footer: {
@@ -338,6 +342,13 @@ struct BandStatusContent: View {
         }
         let when = minutes >= 0 ? "\(minutes) min before sync" : "\(-minutes) min after sync"
         return "\(clock(newest)) (\(when))"
+    }
+
+    /// "6:40 pm" for today, otherwise "8 Nov, 6:40 pm".
+    private static func dayAndTime(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date)
+            ? date.formatted(date: .omitted, time: .shortened)
+            : date.formatted(.dateTime.day().month().hour().minute())
     }
 
     private static func clock(_ date: Date?) -> String {

@@ -36,14 +36,16 @@ final class NowPlayingSync {
         authorization == .denied || authorization == .restricted
     }
 
-    /// Hooks into the band's requests. Called once when the screen appears.
+    /// Called once when the screen appears.
     func attach(to connection: BandConnection) {
         self.connection = connection
-        connection.onBandRequest = { [weak self] request in
-            guard request.type == 11 else { return }   // "Music info"
-            Task { await self?.send(force: true) }
-        }
         updateSongWatching()
+    }
+
+    /// The band asked for music info (request type 11), so it wants an answer even if
+    /// the song hasn't changed.
+    func answerMusicRequest() async {
+        await send(force: true)
     }
 
     /// Called when the switch changes.

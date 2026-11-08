@@ -88,7 +88,7 @@ First byte is the request type.
 | 0 | Background sync tick (likely a timer) | Starts an activity sync if the user setting allows |
 | 1 | Get calendar | Re-sends calendar |
 | 2 | Locate phone | Triggers find-my-phone |
-| 3 | Get weather | **Not handled** by Gadgetbridge. Whether the band actually sends this is **UNVERIFIED** |
+| 3 | Get weather | **Not handled** by Gadgetbridge. **Confirmed on our band** (section 13): sent about every 4 hours |
 | 4 | Riiiver side button | Ignored |
 | 5 | Riiiver home icon tapped | Ignored |
 | 6 | Unknown, possibly payment related | Ignored |
@@ -247,5 +247,12 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
 - **Band requests on 4002 (commit `656ee78`, first observations):** subscribing to 4002 works, and the band sends requests to the app. **Type 11 "Music info" is confirmed**: it arrived when the band's music screen was opened (2 requests seen). This is the trigger for sending the `0x05` track text. How often the other types arrive (especially type 0 sync tick and type 3 get weather) is waiting on a longer log.
 
 - **Music text `0x05` (commit `017792b`): confirmed working** as the answer to a type 11 request. "Song / Artist" from Apple Music appears on the band's music screen as a **scrolling line**. A `0x05` sent unprompted before the screen was opened (debug test, no request answered) was **not** shown, which suggests the band displays the text it gets in answer to its own request when the screen opens. Skipping tracks updates the title, and it keeps working **with the iPhone locked**: iOS wakes the app in the background (Bluetooth background mode) for each type 11 request. This proves band-initiated background wake-ups work, which the automatic background sync design will build on.
+
+- **Band request schedule (overnight log, 8-9 Nov 2026, phone locked, band in the same room):** only types 0, 1 and 3 arrive by themselves.
+  - **Type 0 sync tick: every 30 minutes**, all night. The timer restarts when the band reconnects (ticks moved from :08:58/:38:58 to :14:17/:44:17).
+  - **Type 1 get calendar: hourly**, 20 seconds after every second tick.
+  - **Type 3 get weather: about every 4 hours** (01:14:42, 05:14:41), 5 seconds after a calendar request. Once it also came straight after a reconnect (20:44), but not after another (22:32).
+  - Two "connection has timed out" disconnects were the phone being taken out of range. The app's pending reconnect waited about 1 h 43 min and reconnected by itself; the connection then held from 22:32 to past 05:14.
+  - Answering type 3 with the `0x03` weather packet (and time first) is how Buckle Link now keeps weather fresh in the background. Result on the band: pending.
 
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

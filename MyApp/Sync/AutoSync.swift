@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import UIKit
 
 /// Decides when the band needs fresh weather (and the time, which is sent with it).
 /// Pure, so the rule can be unit-tested.
@@ -21,8 +22,8 @@ nonisolated enum WeatherSchedule {
     }
 }
 
-/// Sends time and weather by itself when the app connects or comes back to the screen,
-/// but only when `WeatherSchedule` says it's due, and only if the user's switch is on.
+/// Sends time and weather by itself, only if the user's switch is on: when the band asks
+/// for weather, and as a backup when the app connects or comes on screen and an update is due.
 @Observable
 final class AutoSync {
 
@@ -47,34 +48,65 @@ final class AutoSync {
         defaults.object(forKey: Self.enabledKey) as? Bool ?? true
     }
 
+    /// Runs when the app connects or comes on screen: updates only if `WeatherSchedule` says it's due.
     func runIfDue(connection: BandConnection, weather: WeatherSync) async {
-        guard isEnabled, !isRunning,
-              connection.state == .connected,
-              !connection.isSending, !connection.activity.inProgress, !weather.isBusy else { return }
-
         let now = Date()
-        let offset = TimeZone.current.secondsFromGMT(for: now)
         guard WeatherSchedule.isDue(lastSent: defaults.object(forKey: Self.lastSentKey) as? Date,
                                     lastOffset: defaults.object(forKey: Self.lastOffsetKey) as? Int,
                                     now: now,
-                                    currentOffset: offset) else { return }
+                                    currentOffset: TimeZone.current.secondsFromGMT(for: now)) else { return }
+        _ = await update(connection: connection, weather: weather)
+    }
 
+    /// Runs when the band asks for weather (request type 3, about every 4 hours, also with the
+    /// phone locked). The band asking is reason enough, so the schedule isn't checked.
+    /// The result goes in the band log, so an overnight log shows whether each request was answered.
+    func answerWeatherRequest(connection: BandConnection, weather: WeatherSync) async {
+        let outcome = await update(connection: connection, weather: weather)
+        connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
+    }
+
+    /// Time first, then weather. Returns a short line for the log.
+    private func update(connection: BandConnection, weather: WeatherSync) async -> String {
+        guard isEnabled else { return "Weather request not answered: automatic updates are off" }
+        guard !isRunning, connection.state == .connected,
+              !connection.isSending, !connection.activity.inProgress, !weather.isBusy else {
+            return "Weather request not answered: busy"
+        }
         isRunning = true
         defer { isRunning = false }
 
-        // Time first, then weather. If time fails (for example the band disconnected), stop
-        // and try again next time.
-        guard await connection.syncTime(automatic: true) else { return }
+        // If the band woke the app in the background, iOS gives it only a few seconds.
+        // A "background task" asks iOS for up to about 30 seconds, enough for the forecast
+        // download. We must say when we're done (endBackgroundTask), or iOS closes the app.
+        let backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Band update")
+        defer { UIApplication.shared.endBackgroundTask(backgroundTask) }
+
+        let now = Date()
+        let offset = TimeZone.current.secondsFromGMT(for: now)
+
+        // If time fails (for example the band disconnected), stop and try again next time.
+        guard await connection.syncTime(automatic: true) else {
+            return "Weather request not answered: time sync failed"
+        }
 
         // Never pop up the location permission automatically: only send weather if
         // the user has already allowed it (by tapping Send weather once).
+        var outcome = "Answered weather request (time only, no location permission)"
         if weather.canUseLocation {
-            guard await weather.sendForecast(using: connection, automatic: true) else { return }
+            guard await weather.sendForecast(using: connection, automatic: true) else {
+                if case .failed(let reason) = weather.status {
+                    return "Weather request not answered: \(reason)"
+                }
+                return "Weather request not answered"
+            }
+            outcome = "Answered weather request (time and weather)"
         }
 
         // Only a successful update counts, so a failure is retried next time.
         defaults.set(now, forKey: Self.lastSentKey)
         defaults.set(offset, forKey: Self.lastOffsetKey)
         lastUpdate = now
+        return outcome
     }
 }

@@ -53,6 +53,17 @@ struct BandStatusView: View {
         .onAppear {
             connection.start()
             nowPlaying.attach(to: connection)
+            // The band's requests (spec section 6). Only these two are answered.
+            connection.onBandRequest = { request in
+                switch request.type {
+                case 3:  // Get weather
+                    Task { await autoSync.answerWeatherRequest(connection: connection, weather: weatherSync) }
+                case 11: // Music info
+                    Task { await nowPlaying.answerMusicRequest() }
+                default:
+                    break
+                }
+            }
         }
         .onChange(of: showSongTitle) {
             Task { await nowPlaying.enabledChanged() }

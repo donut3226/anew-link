@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import Observation
+import UIKit
 
 /// Runs the "Send weather" steps in order: location -> forecast -> packet -> band.
 /// Kept separate from BandConnection so the Bluetooth code doesn't need to know about
@@ -41,12 +42,11 @@ final class WeatherSync {
     func sendForecast(using connection: BandConnection, automatic: Bool = false) async -> Bool {
         guard !isBusy else { return false }
         do {
-            status = .locating
-            let here = try await location.currentLocation()
+            let here = try await whereToForecast()
 
             status = .fetching
-            let days = try await OpenMeteoClient.fetchForecast(latitude: here.coordinate.latitude,
-                                                               longitude: here.coordinate.longitude)
+            let days = try await OpenMeteoClient.fetchForecast(latitude: here.latitude,
+                                                               longitude: here.longitude)
             guard let packet = WenaPackets.weather(days: days.map(\.wenaDay)) else {
                 throw OpenMeteoClient.FetchError.notEnoughDays
             }
@@ -54,6 +54,29 @@ final class WeatherSync {
         } catch {
             status = .failed(error.localizedDescription)
             return false
+        }
+    }
+
+    /// On screen: a fresh location (which is then saved). In the background: the saved one,
+    /// because iOS doesn't give a fresh location to a background app with "While Using" permission.
+    private func whereToForecast() async throws -> SavedLocation {
+        if UIApplication.shared.applicationState == .active {
+            status = .locating
+            let fresh = try await location.currentLocation()
+            let rounded = SavedLocation(latitude: fresh.coordinate.latitude,
+                                        longitude: fresh.coordinate.longitude)
+            rounded.save()
+            return rounded
+        }
+        guard let saved = SavedLocation.load() else { throw WeatherError.noSavedLocation }
+        return saved
+    }
+
+    enum WeatherError: LocalizedError {
+        case noSavedLocation
+
+        var errorDescription: String? {
+            "No saved location yet. Open the app once so it can find where you are."
         }
     }
 

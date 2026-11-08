@@ -31,7 +31,8 @@ final class BandConnection: NSObject {
         case sending
         /// `at` is the real time of the sync. `wasTest` means the debug +5 min test.
         /// `timeZoneSkipped` means the zone packet wasn't sent because it isn't verified.
-        case done(at: Date, wasTest: Bool, timeZoneSkipped: Bool)
+        /// `automatic` means AutoSync sent it, not a button.
+        case done(at: Date, wasTest: Bool, timeZoneSkipped: Bool, automatic: Bool)
         case failed(String)
     }
 
@@ -132,11 +133,15 @@ final class BandConnection: NSObject {
     }
 
     /// Sends the iPhone's current time and time zone to the band (spec section 4).
+    /// Returns true if the band accepted it.
     ///
-    /// - Parameter offsetSeconds: added to the time sent. Always 0, except for the
-    ///   debug-only test button, which sends +300 to prove the packet changes the band's clock.
-    func syncTime(offsetSeconds: TimeInterval = 0) {
-        guard !isSending else { return }
+    /// - Parameters:
+    ///   - offsetSeconds: added to the time sent. Always 0, except for the debug-only
+    ///     test button, which sends +300 to prove the packet changes the band's clock.
+    ///   - automatic: true when AutoSync sent it rather than a button tap (shown on screen).
+    @discardableResult
+    func syncTime(offsetSeconds: TimeInterval = 0, automatic: Bool = false) async -> Bool {
+        guard !isSending else { return false }
 
         let now = Date()
         var packets = [WenaPackets.setTime(now.addingTimeInterval(offsetSeconds))]
@@ -145,17 +150,27 @@ final class BandConnection: NSObject {
             packets.append(zonePacket)
         }
 
-        let result = TimeSyncStatus.done(at: now, wasTest: offsetSeconds != 0, timeZoneSkipped: zonePacket == nil)
         timeSync = .sending
-        send(packets, to: WenaGATT.controlCharacteristic) { [weak self] error in
-            self?.timeSync = error.map { .failed($0) } ?? result
-        }
+        let error = await sendAndWait(packets, to: WenaGATT.controlCharacteristic)
+        timeSync = error.map { .failed($0) }
+            ?? .done(at: now, wasTest: offsetSeconds != 0, timeZoneSkipped: zonePacket == nil, automatic: automatic)
+        return error == nil
     }
 
     /// Sends a weather packet (built by `WenaPackets.weather(days:)`) to characteristic 4002.
-    /// `completion` gets nil on success, otherwise an error message.
-    func sendWeather(_ packet: Data, completion: @escaping (String?) -> Void) {
-        send([packet], to: WenaGATT.notificationCharacteristic, completion: completion)
+    /// Returns nil on success, otherwise an error message.
+    func sendWeather(_ packet: Data) async -> String? {
+        await sendAndWait([packet], to: WenaGATT.notificationCharacteristic)
+    }
+
+    /// `send`, wrapped so callers can `await` the result instead of passing a completion.
+    /// A "continuation" is the bridge: it pauses here until `send` calls back.
+    private func sendAndWait(_ packets: [Data], to uuid: CBUUID) async -> String? {
+        await withCheckedContinuation { continuation in
+            send(packets, to: uuid) { error in
+                continuation.resume(returning: error)
+            }
+        }
     }
 
     // MARK: - Activity sync (spec section 7)

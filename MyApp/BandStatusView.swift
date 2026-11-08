@@ -9,6 +9,11 @@ struct BandStatusView: View {
     // @State keeps the same BandConnection alive while this screen is on display.
     @State private var connection = BandConnection()
     @State private var weatherSync = WeatherSync()
+    @State private var autoSync = AutoSync()
+    /// The "update automatically" switch, saved in the iPhone's settings store.
+    @AppStorage(AutoSync.enabledKey) private var autoUpdate = true
+    /// Whether the app is on screen, in the background, or between the two.
+    @Environment(\.scenePhase) private var scenePhase
     @State private var healthSync = HealthSync()
 
     var body: some View {
@@ -23,10 +28,11 @@ struct BandStatusView: View {
             health: healthSync.status,
             isBusy: connection.isSending || weatherSync.isBusy || connection.activity.inProgress || healthSync.isBusy,
             onRefresh: { connection.refresh() },
-            onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) },
-            // Task { } starts async work (location, then internet) without blocking the screen.
+            autoUpdate: $autoUpdate,
+            // Task { } starts async work (Bluetooth, location, internet) without blocking the screen.
+            onSyncTime: { offset in Task { await connection.syncTime(offsetSeconds: offset) } },
             onSendWeather: { Task { await weatherSync.sendForecast(using: connection) } },
-            onSendTestWeather: { weatherSync.sendTestPattern(using: connection) },
+            onSendTestWeather: { Task { await weatherSync.sendTestPattern(using: connection) } },
             onSyncActivity: { connection.syncActivity() },
             onSaveToHealth: {
                 guard case .done(let result) = connection.activity else { return }
@@ -36,6 +42,22 @@ struct BandStatusView: View {
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
+        // Automatic updates: when the band connects, and when the app comes back on screen.
+        // AutoSync itself checks the switch and whether an update is actually due.
+        .onChange(of: connection.state) { _, newState in
+            if newState == .connected { runAutoSync() }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { runAutoSync() }
+        }
+    }
+
+    private func runAutoSync() {
+        Task {
+            // A short pause so the band's weather characteristic is found before we use it.
+            try? await Task.sleep(for: .seconds(1))
+            await autoSync.runIfDue(connection: connection, weather: weatherSync)
+        }
     }
 
     /// One packet per line, as hex bytes, for the debug share button.
@@ -60,6 +82,8 @@ struct BandStatusContent: View {
     var isBusy = false
     let onRefresh: () -> Void
     /// Called with how many seconds to add to the time sent: 0 normally, 300 for the debug test.
+    /// A Binding lets this view change a value owned by its parent (the switch's on/off).
+    var autoUpdate: Binding<Bool> = .constant(true)
     var onSyncTime: (TimeInterval) -> Void = { _ in }
     var onSendWeather: () -> Void = {}
     var onSendTestWeather: () -> Void = {}
@@ -81,6 +105,14 @@ struct BandStatusContent: View {
                         LabeledContent("Firmware", value: info?.firmwareName ?? "Reading…")
                         LabeledContent("Battery", value: batteryPercent.map { "\($0)%" } ?? "Reading…")
                         serialRow
+                    }
+
+                    Section {
+                        Toggle("Update weather and time automatically", isOn: autoUpdate)
+                    } header: {
+                        Text("Automatic updates")
+                    } footer: {
+                        Text("When the app opens, sends the time and weather if the forecast is from yesterday, over 3 hours old, or you've changed time zone.")
                     }
 
                     Section("Time") {
@@ -194,11 +226,11 @@ struct BandStatusContent: View {
             EmptyView()
         case .sending:
             busyRow("Syncing time…")
-        case .done(let at, let wasTest, let timeZoneSkipped):
+        case .done(let at, let wasTest, let timeZoneSkipped, let automatic):
             VStack(alignment: .leading, spacing: 4) {
                 Label(wasTest
                       ? "Test sent at \(at.formatted(date: .omitted, time: .shortened)): band should be 5 min fast"
-                      : "Time synced at \(at.formatted(date: .omitted, time: .shortened))",
+                      : "Time synced at \(at.formatted(date: .omitted, time: .shortened))\(automatic ? " (automatic)" : "")",
                       systemImage: wasTest ? "testtube.2" : "checkmark.circle.fill")
                     .foregroundStyle(wasTest ? .orange : .green)
                 if timeZoneSkipped {
@@ -224,8 +256,8 @@ struct BandStatusContent: View {
             busyRow("Getting the forecast…")
         case .sending:
             busyRow("Sending to the band…")
-        case .done(let today, let at):
-            let time = at.formatted(date: .omitted, time: .shortened)
+        case .done(let today, let at, let automatic):
+            let time = at.formatted(date: .omitted, time: .shortened) + (automatic ? " (automatic)" : "")
             if let today {
                 Label("Sent at \(time). Today: \(Self.describe(today.wenaDay)), \(Self.degrees(today.minCelsius)) to \(Self.degrees(today.maxCelsius))",
                       systemImage: "checkmark.circle.fill")
@@ -360,7 +392,7 @@ struct BandStatusContent: View {
     BandStatusContent(state: .connected,
                       info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
                       batteryPercent: 80,
-                      timeSync: .done(at: .now, wasTest: false, timeZoneSkipped: false),
+                      timeSync: .done(at: .now, wasTest: false, timeZoneSkipped: false, automatic: true),
                       onRefresh: {})
 }
 
@@ -368,7 +400,7 @@ struct BandStatusContent: View {
     BandStatusContent(state: .connected,
                       info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
                       batteryPercent: 80,
-                      timeSync: .done(at: .now, wasTest: true, timeZoneSkipped: true),
+                      timeSync: .done(at: .now, wasTest: true, timeZoneSkipped: true, automatic: false),
                       onRefresh: {})
 }
 
@@ -386,7 +418,7 @@ struct BandStatusContent: View {
                       batteryPercent: 80,
                       weather: .done(today: DailyForecast(day: "2026-01-01", weatherCode: 2,
                                                           minCelsius: 12, maxCelsius: 21),
-                                     at: .now),
+                                     at: .now, automatic: true),
                       onRefresh: {})
 }
 

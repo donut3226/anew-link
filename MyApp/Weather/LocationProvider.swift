@@ -28,6 +28,14 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
         manager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
 
+    /// True if the user has already allowed location, so asking for it won't show a popup.
+    var isAuthorized: Bool {
+        switch manager.authorizationStatus {
+        case .authorizedWhenInUse, .authorizedAlways: true
+        default: false
+        }
+    }
+
     /// Asks for permission if needed, then returns one location.
     func currentLocation() async throws -> CLLocation {
         // Only one request at a time.

@@ -14,7 +14,8 @@ final class WeatherSync {
         case fetching
         case sending
         /// `today` is the first forecast day (nil for the debug test pattern).
-        case done(today: DailyForecast?, at: Date)
+        /// `automatic` means AutoSync sent it, not a button.
+        case done(today: DailyForecast?, at: Date, automatic: Bool)
         case failed(String)
     }
 
@@ -29,9 +30,16 @@ final class WeatherSync {
         }
     }
 
+    /// True if location permission is already granted, so no popup would appear.
+    var canUseLocation: Bool {
+        location.isAuthorized
+    }
+
     /// Gets the real 5-day forecast for where you are and sends it to the band.
-    func sendForecast(using connection: BandConnection) async {
-        guard !isBusy else { return }
+    /// Returns true if the band accepted it.
+    @discardableResult
+    func sendForecast(using connection: BandConnection, automatic: Bool = false) async -> Bool {
+        guard !isBusy else { return false }
         do {
             status = .locating
             let here = try await location.currentLocation()
@@ -42,22 +50,28 @@ final class WeatherSync {
             guard let packet = WenaPackets.weather(days: days.map(\.wenaDay)) else {
                 throw OpenMeteoClient.FetchError.notEnoughDays
             }
-            send(packet, today: days.first, using: connection)
+            return await send(packet, today: days.first, automatic: automatic, using: connection)
         } catch {
             status = .failed(error.localizedDescription)
+            return false
         }
     }
 
     /// Debug only: sends the fixed made-up pattern in `WenaPackets.testWeatherDays`.
-    func sendTestPattern(using connection: BandConnection) {
+    func sendTestPattern(using connection: BandConnection) async {
         guard !isBusy, let packet = WenaPackets.weather(days: WenaPackets.testWeatherDays) else { return }
-        send(packet, today: nil, using: connection)
+        await send(packet, today: nil, automatic: false, using: connection)
     }
 
-    private func send(_ packet: Data, today: DailyForecast?, using connection: BandConnection) {
+    @discardableResult
+    private func send(_ packet: Data, today: DailyForecast?, automatic: Bool,
+                      using connection: BandConnection) async -> Bool {
         status = .sending
-        connection.sendWeather(packet) { [weak self] error in
-            self?.status = error.map { .failed($0) } ?? .done(today: today, at: Date())
+        if let error = await connection.sendWeather(packet) {
+            status = .failed(error)
+            return false
         }
+        status = .done(today: today, at: Date(), automatic: automatic)
+        return true
     }
 }

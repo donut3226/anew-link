@@ -39,7 +39,9 @@ struct BandStatusView: View {
                 guard case .done(let result) = connection.activity else { return }
                 let firmware = connection.info?.firmwareName
                 Task { await healthSync.save(result.samples, firmware: firmware) }
-            }
+            },
+            eventLog: connection.events,
+            isListeningForRequests: connection.isListeningForRequests
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
@@ -91,6 +93,9 @@ struct BandStatusContent: View {
     var onSendTestWeather: () -> Void = {}
     var onSyncActivity: () -> Void = {}
     var onSaveToHealth: () -> Void = {}
+    /// The band request log (debug section only). nil in previews.
+    var eventLog: BandEventLog?
+    var isListeningForRequests = false
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -171,6 +176,12 @@ struct BandStatusContent: View {
                     #endif
                 }
 
+                #if DEBUG
+                if let eventLog {
+                    bandRequestsSection(eventLog)
+                }
+                #endif
+
                 if let buttonTitle {
                     Section {
                         Button(buttonTitle, action: onRefresh)
@@ -199,6 +210,8 @@ struct BandStatusContent: View {
         case .notFound:
             Label("Band not found. Keep it nearby with its screen on, and check it shows as Connected in Settings > Bluetooth.",
                   systemImage: "questionmark.circle")
+        case .reconnecting:
+            busyRow("Reconnecting… (waiting for the band to come back in range)")
         case .connecting:
             busyRow("Connecting…")
         case .connected:
@@ -308,6 +321,33 @@ struct BandStatusContent: View {
                 .foregroundStyle(.orange)
         }
     }
+
+    #if DEBUG
+    /// Debug only: what the band has asked for, and connection events, to design background syncing.
+    private func bandRequestsSection(_ log: BandEventLog) -> some View {
+        Section {
+            LabeledContent("Listening", value: isListeningForRequests ? "Yes" : "No")
+            if log.requestCounts.isEmpty {
+                Text("No requests yet").foregroundStyle(.secondary)
+            }
+            ForEach(log.requestCounts, id: \.type) { entry in
+                LabeledContent(entry.name, value: "\(entry.count)")
+            }
+            ForEach(log.events.suffix(20).reversed()) { event in
+                Text("\(event.date.formatted(date: .abbreviated, time: .standard))  \(event.detail)")
+                    .font(.caption.monospaced())
+            }
+            if !log.events.isEmpty {
+                ShareLink("Share log", item: log.exportText())
+                Button("Clear log", role: .destructive) { log.clear() }
+            }
+        } header: {
+            Text("Band requests (debug)")
+        } footer: {
+            Text("Totals per request type since the log was cleared, then the newest 20 events. Kept across launches.")
+        }
+    }
+    #endif
 
     @ViewBuilder
     private var healthRow: some View {

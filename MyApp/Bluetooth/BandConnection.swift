@@ -3,8 +3,9 @@ import Observation
 
 /// Finds the Wena 3 band, reads its info and battery, sends it time and weather, and syncs activity.
 /// Every packet write goes through `send(_:to:completion:)`, and only happens when the user taps a button.
-/// The one other write is the 3002 subscription during `syncActivity`, which is switched off again
-/// when the sync ends. It never pairs or unpairs.
+/// The only other writes are Bluetooth subscriptions: 4002 (the band's requests) for as long as
+/// we're connected, and 3002 during `syncActivity`, switched off again when the sync ends.
+/// If the link drops, it asks iOS to reconnect. It never pairs or unpairs.
 ///
 /// `@Observable` means SwiftUI watches this object and redraws the screen
 /// whenever `state`, `info` or `batteryPercent` changes.
@@ -22,6 +23,7 @@ final class BandConnection: NSObject {
         case searching       // Scanning for the band
         case notFound        // Scan finished without finding it
         case connecting      // Opening our app's channel to the band
+        case reconnecting    // The link dropped; iOS will reconnect when the band is back
         case connected       // Ready, values are being read
         case failed(String)  // Something went wrong, with a message for the screen
     }
@@ -70,6 +72,10 @@ final class BandConnection: NSObject {
     private(set) var activity: ActivityStatus = .idle
     /// True while any packets are being written, so the screen can disable the send buttons.
     private(set) var isSending = false
+    /// True while subscribed to the band's requests on 4002.
+    private(set) var isListeningForRequests = false
+    /// What the band sent and how the connection behaved, saved across launches (diagnostics).
+    @ObservationIgnored let events = BandEventLog()
     /// The raw activity packets from the last sync, kept in memory only, for the debug copy button.
     @ObservationIgnored private(set) var rawActivityPackets: [Data] = []
 
@@ -117,8 +123,9 @@ final class BandConnection: NSObject {
         if activity.inProgress {
             endActivity(.failed("The activity sync was interrupted."))
         }
+        isListeningForRequests = false
         if let band = peripheral {
-            peripheral = nil
+            peripheral = nil   // set first, so didDisconnect knows this was on purpose and doesn't reconnect
             central?.cancelPeripheralConnection(band)
         }
     }
@@ -426,6 +433,7 @@ extension BandConnection: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        events.add(BandEvent(date: Date(), kind: .connected, detail: "Connected"))
         // Only look for the services we need.
         peripheral.discoverServices([WenaGATT.commonService, WenaGATT.notificationService, WenaGATT.activityService])
     }
@@ -443,8 +451,21 @@ extension BandConnection: CBCentralManagerDelegate {
                         error: Error?) {
         // If we closed it ourselves in stop(), self.peripheral is already nil.
         guard peripheral == self.peripheral else { return }
-        self.peripheral = nil
-        fail("Lost the connection to the band.")
+        isListeningForRequests = false
+        events.add(BandEvent(date: Date(), kind: .disconnected,
+                             detail: "Disconnected" + (error.map { ": \($0.localizedDescription)" } ?? "")))
+        if isSending {
+            finishSend(error: "The band disconnected.")
+        }
+        if activity.inProgress {
+            endActivity(.failed("The band disconnected during the sync."))
+        }
+
+        // Ask iOS to reconnect. This request never expires: iOS connects as soon as the band
+        // is back in range, and (with Bluetooth background mode) wakes the app to handle it.
+        state = .reconnecting
+        events.add(BandEvent(date: Date(), kind: .reconnecting, detail: "Reconnecting"))
+        central.connect(peripheral)
     }
 }
 
@@ -481,6 +502,13 @@ extension BandConnection: CBPeripheralDelegate {
             fail("Couldn't read the band's characteristics. \(error.localizedDescription)")
             return
         }
+        // Listen for the band's own requests on 4002 for as long as we're connected
+        // (spec section 6). This is a standard Bluetooth "send me updates" switch, not a Wena packet.
+        if service.uuid == WenaGATT.notificationService,
+           let requests = service.characteristics?.first(where: { $0.uuid == WenaGATT.notificationCharacteristic }) {
+            peripheral.setNotifyValue(true, for: requests)
+        }
+
         // The common service holds info and battery: once it's ready, we're connected.
         // (If 4002 isn't found, only the weather button fails, with a message.)
         guard service.uuid == WenaGATT.commonService else { return }
@@ -499,6 +527,17 @@ extension BandConnection: CBPeripheralDelegate {
                 }
             } else if let data = characteristic.value {
                 handleActivityPacket(data)
+            }
+            return
+        }
+
+        // Requests from the band (4002): record them. Nothing is answered yet.
+        if characteristic.uuid == WenaGATT.notificationCharacteristic {
+            if let error {
+                events.add(BandEvent(date: Date(), kind: .info,
+                                     detail: "Request error: \(error.localizedDescription)"))
+            } else if let data = characteristic.value, let request = BandRequest(data) {
+                events.addRequest(request, raw: data)
             }
             return
         }
@@ -524,6 +563,13 @@ extension BandConnection: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral,
                     didUpdateNotificationStateFor characteristic: CBCharacteristic,
                     error: Error?) {
+        if characteristic.uuid == WenaGATT.notificationCharacteristic {
+            isListeningForRequests = error == nil && characteristic.isNotifying
+            events.add(BandEvent(date: Date(), kind: .info,
+                                 detail: error.map { "Couldn't listen for requests: \($0.localizedDescription)" }
+                                     ?? (characteristic.isNotifying ? "Listening for band requests" : "Stopped listening")))
+            return
+        }
         guard characteristic.uuid == WenaGATT.activityCharacteristic, activity == .subscribing else { return }
         if let error {
             endActivity(.failed("The band didn't allow the activity subscription. \(error.localizedDescription)"))

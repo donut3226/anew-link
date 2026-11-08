@@ -229,4 +229,10 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
   - **Effect not yet observed.** The Wena 3 band has no clock display (the watch head shows the time), so neither a normal sync nor the debug "+5 min" test can be seen on the band. Treat the timestamp encoding as accepted but not yet proven. Verify it through activity-sync timestamps (section 7) or an alarm firing on time, once those are implemented.
   - There is no known way to set the time on the band itself, so the phone app is the only way to correct the band's clock.
 
+- **Weather (commit `aa83cfb`): confirmed working.** The 21-byte `0x03` packet from section 5, written to 4002, with a 5-day forecast from Open-Meteo plus a debug test pattern. The band had shown no weather since Sony's service ended, so the data on screen came from our app.
+  - The band shows **all 5 days**, today first (Sunday to Thursday when sent on a Sunday).
+  - The condition icons matched for each day of the test pattern (sunny, cloudy, rain, heavy rain, snow), which confirms the `(main << 3) | sub` encoding and indexes 0-4.
+  - Temperatures display in **Celsius** with Fahrenheit + 100 on the wire, as section 5 says. Which of min or max the band shows, and the exact per-day values, were not separately checked.
+  - The write was accepted on 4002 without subscribing to it first. Notifications kept working.
+
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

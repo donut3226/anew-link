@@ -15,6 +15,9 @@ struct BandStatusView: View {
     /// Whether the app is on screen, in the background, or between the two.
     @Environment(\.scenePhase) private var scenePhase
     @State private var healthSync = HealthSync()
+    @State private var nowPlaying = NowPlayingSync()
+    /// The "Show song title on band" switch.
+    @AppStorage(NowPlayingSync.enabledKey) private var showSongTitle = false
 
     var body: some View {
         BandStatusContent(
@@ -41,9 +44,19 @@ struct BandStatusView: View {
                 Task { await healthSync.save(result.samples, firmware: firmware) }
             },
             eventLog: connection.events,
-            isListeningForRequests: connection.isListeningForRequests
+            isListeningForRequests: connection.isListeningForRequests,
+            showSongTitle: $showSongTitle,
+            music: nowPlaying.status,
+            musicPermissionDenied: nowPlaying.permissionDenied,
+            onSendTestMusic: { Task { await nowPlaying.sendTest() } }
         )
-        .onAppear { connection.start() }
+        .onAppear {
+            connection.start()
+            nowPlaying.attach(to: connection)
+        }
+        .onChange(of: showSongTitle) {
+            Task { await nowPlaying.enabledChanged() }
+        }
         .onDisappear { connection.stop() }
         // Automatic updates: when the band connects, and when the app comes back on screen.
         // AutoSync itself checks the switch and whether an update is actually due.
@@ -96,6 +109,10 @@ struct BandStatusContent: View {
     /// The band request log (debug section only). nil in previews.
     var eventLog: BandEventLog?
     var isListeningForRequests = false
+    var showSongTitle: Binding<Bool> = .constant(false)
+    var music: NowPlayingSync.Status = .idle
+    var musicPermissionDenied = false
+    var onSendTestMusic: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -128,6 +145,15 @@ struct BandStatusContent: View {
                         Button("Sync time") { onSyncTime(0) }
                             .disabled(isBusy)
                         timeSyncRow
+                    }
+
+                    Section {
+                        Toggle("Show song title on band", isOn: showSongTitle)
+                        musicRow
+                    } header: {
+                        Text("Music")
+                    } footer: {
+                        Text("Shows the song playing in Apple Music when you open the band's music screen. The band's play, skip and volume buttons work through iOS already.")
                     }
 
                     Section {
@@ -164,6 +190,8 @@ struct BandStatusContent: View {
                         Button("Test: set band 5 min fast") { onSyncTime(5 * 60) }
                             .disabled(isBusy)
                         Button("Test: send test weather", action: onSendTestWeather)
+                            .disabled(isBusy)
+                        Button("Test: send music text", action: onSendTestMusic)
                             .disabled(isBusy)
                         if !rawActivityHex.isEmpty {
                             ShareLink("Share raw activity packets", item: rawActivityHex)
@@ -348,6 +376,29 @@ struct BandStatusContent: View {
         }
     }
     #endif
+
+    @ViewBuilder
+    private var musicRow: some View {
+        if musicPermissionDenied {
+            Label("Apple Music access is off. Turn it on in Settings > Privacy & Security > Media & Apple Music > Buckle Link.",
+                  systemImage: "hand.raised")
+                .foregroundStyle(.orange)
+        } else {
+            switch music {
+            case .idle:
+                EmptyView()
+            case .sent(let text, let at):
+                Label(text.isEmpty
+                      ? "Cleared at \(Self.clock(at)) (nothing playing)"
+                      : "Sent \"\(text)\" at \(Self.clock(at))",
+                      systemImage: "music.note")
+                    .foregroundStyle(.green)
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
 
     @ViewBuilder
     private var healthRow: some View {

@@ -76,6 +76,9 @@ final class BandConnection: NSObject {
     private(set) var isListeningForRequests = false
     /// What the band sent and how the connection behaved, saved across launches (diagnostics).
     @ObservationIgnored let events = BandEventLog()
+    /// Called for every request the band sends on 4002, after it's logged.
+    /// Features that answer a request (for example the song title) hook in here.
+    @ObservationIgnored var onBandRequest: ((BandRequest) -> Void)?
     /// The raw activity packets from the last sync, kept in memory only, for the debug copy button.
     @ObservationIgnored private(set) var rawActivityPackets: [Data] = []
 
@@ -167,6 +170,12 @@ final class BandConnection: NSObject {
     /// Sends a weather packet (built by `WenaPackets.weather(days:)`) to characteristic 4002.
     /// Returns nil on success, otherwise an error message.
     func sendWeather(_ packet: Data) async -> String? {
+        await sendAndWait([packet], to: WenaGATT.notificationCharacteristic)
+    }
+
+    /// Sends a music text packet (built by `WenaPackets.musicText(_:)`) to characteristic 4002.
+    /// Returns nil on success, otherwise an error message.
+    func sendMusicText(_ packet: Data) async -> String? {
         await sendAndWait([packet], to: WenaGATT.notificationCharacteristic)
     }
 
@@ -538,6 +547,7 @@ extension BandConnection: CBPeripheralDelegate {
                                      detail: "Request error: \(error.localizedDescription)"))
             } else if let data = characteristic.value, let request = BandRequest(data) {
                 events.addRequest(request, raw: data)
+                onBandRequest?(request)
             }
             return
         }

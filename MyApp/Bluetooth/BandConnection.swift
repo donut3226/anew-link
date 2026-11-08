@@ -1,8 +1,9 @@
 import CoreBluetooth
 import Observation
 
-/// Finds the Wena 3 band and reads its info and battery. Read-only:
-/// it never writes to the band, never subscribes to updates, and never pairs or unpairs.
+/// Finds the Wena 3 band, reads its info and battery, and syncs its clock.
+/// The only writes are the time and time zone packets in `syncTime`, sent when the user taps a button.
+/// It never subscribes to updates, and never pairs or unpairs.
 ///
 /// `@Observable` means SwiftUI watches this object and redraws the screen
 /// whenever `state`, `info` or `batteryPercent` changes.
@@ -24,15 +25,29 @@ final class BandConnection: NSObject {
         case failed(String)  // Something went wrong, with a message for the screen
     }
 
+    enum TimeSyncStatus: Equatable {
+        case idle
+        case sending
+        /// `at` is the real time of the sync. `wasTest` means the debug +5 min test.
+        /// `timeZoneSkipped` means the zone packet wasn't sent because it isn't verified.
+        case done(at: Date, wasTest: Bool, timeZoneSkipped: Bool)
+        case failed(String)
+    }
+
     private(set) var state: State = .starting
     private(set) var info: BandInfo?
     private(set) var batteryPercent: Int?
+    private(set) var timeSync: TimeSyncStatus = .idle
 
     // @ObservationIgnored: SwiftUI doesn't need to watch these internal helpers.
     @ObservationIgnored private var central: CBCentralManager?
     /// We must keep a strong reference to the band, or iOS drops the connection.
     @ObservationIgnored private var peripheral: CBPeripheral?
     @ObservationIgnored private var scanTimeout: Task<Void, Never>?
+    /// Packets still to send in the current time sync, in order.
+    @ObservationIgnored private var pendingWrites: [Data] = []
+    /// What to show once the pending writes are done.
+    @ObservationIgnored private var pendingResult: TimeSyncStatus = .idle
 
     private static let scanDuration: Duration = .seconds(15)
 
@@ -69,6 +84,61 @@ final class BandConnection: NSObject {
         }
     }
 
+    /// Sends the iPhone's current time and time zone to the band (spec section 4).
+    /// This is the only place in the app that writes to the band.
+    ///
+    /// - Parameter offsetSeconds: added to the time sent. Always 0, except for the
+    ///   debug-only test button, which sends +300 to prove the packet changes the band's clock.
+    func syncTime(offsetSeconds: TimeInterval = 0) {
+        guard timeSync != .sending else { return }
+        guard state == .connected,
+              let band = peripheral,
+              let control = characteristic(WenaGATT.controlCharacteristic, in: band) else {
+            timeSync = .failed("The band isn't ready. Tap Refresh and try again.")
+            return
+        }
+
+        let now = Date()
+        var packets = [WenaPackets.setTime(now.addingTimeInterval(offsetSeconds))]
+        let zonePacket = WenaPackets.setTimeZone(secondsFromGMT: TimeZone.current.secondsFromGMT(for: now))
+        if let zonePacket {
+            packets.append(zonePacket)
+        }
+
+        pendingWrites = packets
+        pendingResult = .done(at: now, wasTest: offsetSeconds != 0, timeZoneSkipped: zonePacket == nil)
+        timeSync = .sending
+        writeNextPacket(to: band, control: control)
+    }
+
+    /// Sends the next waiting packet. With "write with response", the band confirms each one
+    /// and `didWriteValueFor` calls this again, so packets go one at a time, in order.
+    private func writeNextPacket(to band: CBPeripheral, control: CBCharacteristic) {
+        guard !pendingWrites.isEmpty else {
+            timeSync = pendingResult
+            return
+        }
+        let packet = pendingWrites.removeFirst()
+
+        if control.properties.contains(.write) {
+            band.writeValue(packet, for: control, type: .withResponse)
+            // Continues in peripheral(_:didWriteValueFor:error:).
+        } else if control.properties.contains(.writeWithoutResponse) {
+            // No confirmation comes back, so carry straight on.
+            band.writeValue(packet, for: control, type: .withoutResponse)
+            writeNextPacket(to: band, control: control)
+        } else {
+            pendingWrites = []
+            timeSync = .failed("The band's settings characteristic can't be written to.")
+        }
+    }
+
+    private func characteristic(_ uuid: CBUUID, in band: CBPeripheral) -> CBCharacteristic? {
+        band.services?
+            .flatMap { $0.characteristics ?? [] }
+            .first { $0.uuid == uuid }
+    }
+
     // MARK: - Finding and connecting
 
     private func findBand() {
@@ -76,6 +146,7 @@ final class BandConnection: NSObject {
         stop()
         info = nil
         batteryPercent = nil
+        timeSync = .idle
 
         // Main path: ask iOS which already-connected devices offer the Wena service.
         let connected = central.retrieveConnectedPeripherals(withServices: [WenaGATT.commonService])
@@ -127,6 +198,10 @@ final class BandConnection: NSObject {
 
     private func fail(_ message: String) {
         state = .failed(message)
+        if timeSync == .sending {
+            pendingWrites = []
+            timeSync = .failed("Time sync was interrupted.")
+        }
     }
 }
 
@@ -196,8 +271,9 @@ extension BandConnection: CBPeripheralDelegate {
             fail("This device doesn't look like a Wena 3 band.")
             return
         }
+        // Discovering 1514 only looks it up. Nothing is written until syncTime is called.
         peripheral.discoverCharacteristics(
-            [WenaGATT.infoCharacteristic, WenaGATT.stateCharacteristic],
+            [WenaGATT.infoCharacteristic, WenaGATT.stateCharacteristic, WenaGATT.controlCharacteristic],
             for: service
         )
     }
@@ -232,5 +308,17 @@ extension BandConnection: CBPeripheralDelegate {
         default:
             break
         }
+    }
+
+    func peripheral(_ peripheral: CBPeripheral,
+                    didWriteValueFor characteristic: CBCharacteristic,
+                    error: Error?) {
+        guard characteristic.uuid == WenaGATT.controlCharacteristic, timeSync == .sending else { return }
+        if let error {
+            pendingWrites = []
+            timeSync = .failed("The band didn't accept the time. \(error.localizedDescription)")
+            return
+        }
+        writeNextPacket(to: peripheral, control: characteristic)
     }
 }

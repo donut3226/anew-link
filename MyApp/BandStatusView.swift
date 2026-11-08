@@ -14,7 +14,9 @@ struct BandStatusView: View {
             state: connection.state,
             info: connection.info,
             batteryPercent: connection.batteryPercent,
-            onRefresh: { connection.refresh() }
+            timeSync: connection.timeSync,
+            onRefresh: { connection.refresh() },
+            onSyncTime: { offset in connection.syncTime(offsetSeconds: offset) }
         )
         .onAppear { connection.start() }
         .onDisappear { connection.stop() }
@@ -25,7 +27,10 @@ struct BandStatusContent: View {
     let state: BandConnection.State
     let info: BandInfo?
     let batteryPercent: Int?
+    var timeSync: BandConnection.TimeSyncStatus = .idle
     let onRefresh: () -> Void
+    /// Called with how many seconds to add to the time sent: 0 normally, 300 for the debug test.
+    var onSyncTime: (TimeInterval) -> Void = { _ in }
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -43,6 +48,25 @@ struct BandStatusContent: View {
                         LabeledContent("Battery", value: batteryPercent.map { "\($0)%" } ?? "Reading…")
                         serialRow
                     }
+
+                    Section("Time") {
+                        Button("Sync time") { onSyncTime(0) }
+                            .disabled(timeSync == .sending)
+                        timeSyncRow
+                    }
+
+                    // #if DEBUG: this section only exists in builds run from Xcode,
+                    // never in App Store builds.
+                    #if DEBUG
+                    Section {
+                        Button("Test: set band 5 min fast") { onSyncTime(5 * 60) }
+                            .disabled(timeSync == .sending)
+                    } header: {
+                        Text("Debug only")
+                    } footer: {
+                        Text("Proves the time packet works. Tap Sync time afterwards to put the band's clock right.")
+                    }
+                    #endif
                 }
 
                 if let buttonTitle {
@@ -97,6 +121,32 @@ struct BandStatusContent: View {
         }
     }
 
+    @ViewBuilder
+    private var timeSyncRow: some View {
+        switch timeSync {
+        case .idle:
+            EmptyView()
+        case .sending:
+            busyRow("Syncing time…")
+        case .done(let at, let wasTest, let timeZoneSkipped):
+            VStack(alignment: .leading, spacing: 4) {
+                Label(wasTest
+                      ? "Test sent at \(at.formatted(date: .omitted, time: .shortened)): band should be 5 min fast"
+                      : "Time synced at \(at.formatted(date: .omitted, time: .shortened))",
+                      systemImage: wasTest ? "testtube.2" : "checkmark.circle.fill")
+                    .foregroundStyle(wasTest ? .orange : .green)
+                if timeZoneSkipped {
+                    Text("Time zone not sent: the band's handling of your zone isn't verified yet.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
     private func busyRow(_ text: String) -> some View {
         HStack(spacing: 12) {
             ProgressView()
@@ -120,6 +170,30 @@ struct BandStatusContent: View {
     BandStatusContent(state: .connected,
                       info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
                       batteryPercent: 80,
+                      onRefresh: {})
+}
+
+#Preview("Time synced") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
+                      batteryPercent: 80,
+                      timeSync: .done(at: .now, wasTest: false, timeZoneSkipped: false),
+                      onRefresh: {})
+}
+
+#Preview("Time test sent") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
+                      batteryPercent: 80,
+                      timeSync: .done(at: .now, wasTest: true, timeZoneSkipped: true),
+                      onRefresh: {})
+}
+
+#Preview("Time sync failed") {
+    BandStatusContent(state: .connected,
+                      info: BandInfo(firmwareName: "PREVIEW", serialNumber: 0),
+                      batteryPercent: 80,
+                      timeSync: .failed("The band didn't accept the time."),
                       onRefresh: {})
 }
 

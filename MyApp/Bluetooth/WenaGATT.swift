@@ -18,6 +18,9 @@ nonisolated enum WenaGATT {
     /// Service 1501: the "common" service that holds device info and battery.
     static let commonService = uuid("1501")
 
+    /// Characteristic 1514 (write): device settings, including time and time zone.
+    static let controlCharacteristic = uuid("1514")
+
     /// Characteristic 1520 (read): firmware name and serial number.
     static let infoCharacteristic = uuid("1520")
 

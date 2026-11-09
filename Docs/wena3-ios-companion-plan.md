@@ -177,17 +177,16 @@ App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, 
 
 **Test backlog (built, not yet confirmed on the band):**
 - **Automatic activity save on the 30-minute sync tick** (commit `e15e5c4`): wear or carry the band, lock the phone for an hour or two, then check the log for "Saved activity to Health" about every 30 minutes and look for band entries in Health > Steps > Show All Data. Unproven: Health writes with the phone locked (Apple documents that they're held until unlock). Watch for "Weather request not answered: busy" right after a tick.
-- **Calendar on the band** (built 9 Nov): first send of the `0x02` entries, including an all-day event (sent as 00:00 UTC), and that the hourly request is answered ("Answered calendar request (N events)" in the log).
+- **Calendar all-day events**: entries work on the band (confirmed 9 Nov); check an all-day event shows on the right date, and that the hourly request is answered ("Answered calendar request (N events)" in the log).
 - **Find my phone vibration** with the app open on silent.
 - **Heart rate**: built, untested until the band is worn. Options: Apple Watch lug adapters, a cheap watch head, or the Omega once a good strap fit is found.
 
-**Done since (9 Nov 2026):** find my phone (confirmed on the band), calendar sync (built, not yet tested on the band), calendar, alarm and settings layouts extracted into spec sections 5 and 9, demo mode (checked in the simulator), privacy policy (`Docs/privacy-policy.md`) and release checklist (`Docs/release-checklist.md`).
+**Done since (9 Nov 2026):** find my phone (confirmed on the band), calendar sync (confirmed on the band), calendar, alarm and settings layouts extracted into spec sections 5 and 9, demo mode (checked in the simulator), privacy policy (`Docs/privacy-policy.md`) and release checklist (`Docs/release-checklist.md`).
 
 **Next steps, in order:**
-1. Test calendar on the band: switch on "Show calendar on band" (or Debug > "Test: send test calendar" first) and check the band's calendar screen. Then record the result in spec section 13.
-2. Alarms (`0x06` on 1514, spec section 9): build the 9-slot editor, test with one alarm first.
-3. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.
-4. Release: join the Apple Developer Program, then follow `Docs/release-checklist.md` (TestFlight, App Store listing, review notes).
+1. Alarms (`0x06` on 1514, spec section 9): build the 9-slot editor, test with one alarm first.
+2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.
+3. Release: join the Apple Developer Program, then follow `Docs/release-checklist.md` (TestFlight, App Store listing, review notes).
 
 iOS background refresh as a backup was dropped: the band's own 30-minute tick and 4-hourly weather request already wake the app.
 

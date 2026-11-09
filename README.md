@@ -16,10 +16,11 @@ Working on a real band (tested on firmware 2.40JP):
 - Steps and heart rate saved to Apple Health, automatically about every 30 minutes
 - Song title from Apple Music on the band's music screen
 - Find my phone: the band's find-phone button rings the iPhone
+- Your upcoming calendar events on the band
 - Stays connected in the background and reconnects by itself
 - Demo mode, to try every screen without a band
 
-Built, waiting for a test on the band: calendar events on the band, and automatic Health saving while the phone is locked.
+Built, waiting for a test on the band: automatic Health saving while the phone is locked.
 
 Next: alarms and band settings (vibration, display, do not disturb), one packet at a time.
 

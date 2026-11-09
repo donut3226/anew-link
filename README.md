@@ -17,12 +17,13 @@ Working on a real band (tested on firmware 2.40JP):
 - Song title from Apple Music on the band's music screen
 - Find my phone: the band's find-phone button rings the iPhone
 - Your upcoming calendar events on the band
+- Vibrating alarms (up to 9) set from the app
 - Stays connected in the background and reconnects by itself
 - Demo mode, to try every screen without a band
 
 
 
-Next: alarms and band settings (vibration, display, do not disturb), one packet at a time.
+Next: band settings (vibration, display, do not disturb), one packet at a time.
 
 Notifications, calls and the band's music controls already work through iOS with no app needed (Apple's standard accessory services).
 

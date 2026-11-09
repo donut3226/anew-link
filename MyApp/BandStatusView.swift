@@ -16,6 +16,7 @@ struct BandStatusView: View {
     private var activityAutoSync: ActivityAutoSync { services.activityAutoSync }
     private var findPhone: FindPhone { services.findPhone }
     private var calendarSync: CalendarSync { services.calendarSync }
+    private var alarmStore: AlarmStore { services.alarmStore }
     /// The "Show calendar on band" switch.
     @AppStorage(CalendarSync.enabledKey) private var showCalendar = false
     /// Demo mode (made-up data, no band). Not saved: the app always starts live.
@@ -114,6 +115,12 @@ struct BandStatusView: View {
             calendar: calendarSync.status,
             calendarPermissionDenied: calendarSync.permissionDenied,
             onSendTestCalendar: { Task { await calendarSync.sendTest(using: connection) } },
+            alarms: alarmStore.alarms,
+            alarmStatus: alarmStore.status,
+            canAddAlarm: alarmStore.canAdd,
+            onSaveAlarm: { alarm in Task { await alarmStore.save(alarm, using: connection) } },
+            onToggleAlarm: { id, isOn in Task { await alarmStore.setOn(isOn, for: id, using: connection) } },
+            onDeleteAlarm: { id in Task { await alarmStore.delete(id, using: connection) } },
             onStartDemo: { isDemo = true }
         )
     }
@@ -122,6 +129,10 @@ struct BandStatusView: View {
         Task {
             // A short pause so the band's weather characteristic is found before we use it.
             try? await Task.sleep(for: .seconds(1))
+            // Alarm changes made while the band was away go first (they were user actions).
+            if let outcome = await alarmStore.sendIfPending(using: connection) {
+                connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
+            }
             await autoSync.runIfDue(connection: connection, weather: weatherSync)
             // Then activity, if 2 hours have passed (each checks its own switch and timing).
             await activityAutoSync.runIfDue(connection: connection, health: healthSync)
@@ -177,6 +188,12 @@ struct BandStatusContent: View {
     var calendar: CalendarSync.Status = .idle
     var calendarPermissionDenied = false
     var onSendTestCalendar: () -> Void = {}
+    var alarms: [BandAlarm] = []
+    var alarmStatus: AlarmStore.Status = .idle
+    var canAddAlarm = true
+    var onSaveAlarm: (BandAlarm) -> Void = { _ in }
+    var onToggleAlarm: (BandAlarm.ID, Bool) -> Void = { _, _ in }
+    var onDeleteAlarm: (BandAlarm.ID) -> Void = { _ in }
     /// Shown as "Try the demo" when there's no band to talk to (nil hides it).
     var onStartDemo: (() -> Void)?
     /// Demo mode only: shows the demo banner with an Exit button.
@@ -184,6 +201,8 @@ struct BandStatusContent: View {
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
+    /// The alarm open in the editor (a new one has an id not yet in `alarms`).
+    @State private var editingAlarm: BandAlarm?
 
     var body: some View {
         NavigationStack {
@@ -247,6 +266,23 @@ struct BandStatusContent: View {
                         Text("Calendar")
                     } footer: {
                         Text("Sends the next 7 days of events (up to 30) when the band asks, about once an hour. Read-only: your calendar is never changed.")
+                    }
+
+                    Section {
+                        ForEach(alarms) { alarm in
+                            alarmRow(alarm)
+                        }
+                        .onDelete { offsets in
+                            offsets.map { alarms[$0].id }.forEach(onDeleteAlarm)
+                        }
+                        if canAddAlarm {
+                            Button("Add alarm") { editingAlarm = BandAlarm() }
+                        }
+                        alarmStatusRow
+                    } header: {
+                        Text("Alarms")
+                    } footer: {
+                        Text("Vibrating alarms on the band, up to 9. Changes are sent straight away and replace all alarms on the band.")
                     }
 
                     Section {
@@ -337,6 +373,13 @@ struct BandStatusContent: View {
                 }
             }
             .navigationTitle("Anew Link")
+            .sheet(item: $editingAlarm) { alarm in
+                let isNew = !alarms.contains { $0.id == alarm.id }
+                AlarmEditor(alarm: alarm, isNew: isNew,
+                            onSave: { onSaveAlarm($0); editingAlarm = nil },
+                            onDelete: { onDeleteAlarm(alarm.id); editingAlarm = nil },
+                            onCancel: { editingAlarm = nil })
+            }
         }
     }
 
@@ -431,6 +474,47 @@ struct BandStatusContent: View {
                 Label("Test weather sent at \(time)", systemImage: "testtube.2")
                     .foregroundStyle(.orange)
             }
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle")
+                .foregroundStyle(.orange)
+        }
+    }
+
+    private func alarmRow(_ alarm: BandAlarm) -> some View {
+        HStack {
+            Button {
+                editingAlarm = alarm
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(AlarmText.time(hour: alarm.hour, minute: alarm.minute))
+                        .font(.title2.monospacedDigit())
+                    Text(AlarmText.days(alarm.repeatDays) + (alarm.smartWakeupMinutes > 0 ? ", smart wake-up" : ""))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .foregroundStyle(alarm.isOn ? .primary : .secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Toggle("Alarm on", isOn: Binding(get: { alarm.isOn }, set: { onToggleAlarm(alarm.id, $0) }))
+                .labelsHidden()
+        }
+    }
+
+    @ViewBuilder
+    private var alarmStatusRow: some View {
+        switch alarmStatus {
+        case .idle:
+            EmptyView()
+        case .sending:
+            busyRow("Sending alarms…")
+        case .sent(let at):
+            Label("Sent to the band at \(Self.clock(at))", systemImage: "alarm")
+                .foregroundStyle(.green)
+        case .waiting:
+            Label("Saved. Sent when the band connects.", systemImage: "clock.arrow.circlepath")
+                .foregroundStyle(.orange)
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)

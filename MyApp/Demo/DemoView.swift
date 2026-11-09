@@ -21,6 +21,11 @@ struct DemoView: View {
     @State private var findPhone = false
     @State private var showCalendar = false
     @State private var lastActivitySave: Date?
+    @State private var alarms: [BandAlarm] = [
+        BandAlarm(hour: 6, minute: 30, repeatDays: [2, 3, 4, 5, 6], smartWakeupMinutes: 10),
+        BandAlarm(isOn: false, hour: 8, minute: 0, repeatDays: [1, 7]),
+    ]
+    @State private var alarmStatus: AlarmStore.Status = .idle
 
     var body: some View {
         BandStatusContent(
@@ -53,6 +58,22 @@ struct DemoView: View {
             findPhoneEnabled: $findPhone,
             showCalendar: $showCalendar,
             calendar: showCalendar ? .sent(count: 3, at: Date(), test: false) : .idle,
+            alarms: alarms,
+            alarmStatus: alarmStatus,
+            canAddAlarm: alarms.count < WenaAlarms.slotCount,
+            onSaveAlarm: { alarm in
+                if let i = alarms.firstIndex(where: { $0.id == alarm.id }) { alarms[i] = alarm } else { alarms.append(alarm) }
+                alarms.sort { ($0.hour, $0.minute) < ($1.hour, $1.minute) }
+                alarmStatus = .sent(at: Date())
+            },
+            onToggleAlarm: { id, isOn in
+                if let i = alarms.firstIndex(where: { $0.id == id }) { alarms[i].isOn = isOn }
+                alarmStatus = .sent(at: Date())
+            },
+            onDeleteAlarm: { id in
+                alarms.removeAll { $0.id == id }
+                alarmStatus = .sent(at: Date())
+            },
             onExitDemo: onExit
         )
     }

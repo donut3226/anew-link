@@ -186,7 +186,7 @@ App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, 
 **Release (9 Nov 2026):** paid Apple Developer Program, bundle ID `com.donut32.anew-link` (team WVWWUXQ867), privacy policy live on GitHub Pages, repo public, build 1.0 (1) on TestFlight and installed on the owner's iPhone. New builds: `Scripts/upload-testflight.sh`.
 
 **Next steps, in order:**
-1. Alarms (`0x06` on 1514, spec section 9): build the 9-slot editor, test with one alarm first.
+1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
 2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.
 3. Release: external TestFlight testers (other Wena owners, needs a short beta review), then the App Store listing (`Docs/release-checklist.md`).
 

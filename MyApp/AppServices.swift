@@ -14,6 +14,7 @@ final class AppServices {
     let nowPlaying = NowPlayingSync()
     let findPhone = FindPhone()
     let calendarSync = CalendarSync()
+    let alarmStore = AlarmStore()
 
     /// Called once, at launch.
     func start() {

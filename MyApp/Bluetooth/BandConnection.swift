@@ -2,10 +2,12 @@ import CoreBluetooth
 import Observation
 
 /// Finds the Wena 3 band, reads its info and battery, sends it time and weather, and syncs activity.
-/// Every packet write goes through `send(_:to:completion:)`, and only happens when the user taps a button.
-/// The only other writes are Bluetooth subscriptions: 4002 (the band's requests) for as long as
+/// Every packet write goes through `send(_:to:completion:)`: from a button, from answering a band
+/// request, or from AutoSync. The only other writes are Bluetooth subscriptions: 4002 (the band's requests) for as long as
 /// we're connected, and 3002 during `syncActivity`, switched off again when the sync ends.
-/// If the link drops, it asks iOS to reconnect. It never pairs or unpairs.
+/// If the link drops, it asks iOS to reconnect. With state restoration, iOS keeps that request
+/// even if it closes the app, and relaunches the app in the background when the band is back.
+/// It never pairs or unpairs.
 ///
 /// `@Observable` means SwiftUI watches this object and redraws the screen
 /// whenever `state`, `info` or `batteryPercent` changes.
@@ -97,6 +99,12 @@ final class BandConnection: NSObject {
     @ObservationIgnored private var assembler: ActivityStreamAssembler?
     @ObservationIgnored private var activityStartedAt = Date()
     @ObservationIgnored private var activityTimeout: Task<Void, Never>?
+    /// The band iOS handed back when it relaunched the app (state restoration), until Bluetooth is ready.
+    @ObservationIgnored private var restoredBand: CBPeripheral?
+
+    /// Our name for iOS's state restoration. iOS uses it to give a relaunched app back its
+    /// Bluetooth connections. It must never change, or iOS forgets what we were waiting for.
+    private static let restoreIdentifier = "BuckleLinkBandCentral"
 
     private static let scanDuration: Duration = .seconds(15)
     /// How long the band can go quiet before we treat the activity sync as over.
@@ -109,8 +117,11 @@ final class BandConnection: NSObject {
         if central == nil {
             // queue: nil means CoreBluetooth calls us back on the main thread,
             // which is where this class lives.
-            central = CBCentralManager(delegate: self, queue: nil)
-            // centralManagerDidUpdateState will be called next.
+            // The restore identifier switches on state restoration (see `restoreIdentifier`).
+            central = CBCentralManager(delegate: self, queue: nil,
+                                       options: [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier])
+            // centralManagerDidUpdateState will be called next
+            // (after willRestoreState, if iOS relaunched the app for the band).
         } else {
             findBand()
         }
@@ -383,6 +394,20 @@ final class BandConnection: NSObject {
         }
     }
 
+    /// Picks up the band iOS restored: look up its services again if it's connected,
+    /// otherwise keep waiting for it to come back.
+    private func resume(_ band: CBPeripheral) {
+        peripheral = band
+        band.delegate = self
+        if band.state == .connected {
+            state = .connecting
+            band.discoverServices([WenaGATT.commonService, WenaGATT.notificationService, WenaGATT.activityService])
+        } else {
+            state = .reconnecting
+            central?.connect(band)
+        }
+    }
+
     private func connect(to band: CBPeripheral) {
         stopScan()
         peripheral = band
@@ -418,7 +443,12 @@ extension BandConnection: CBCentralManagerDelegate {
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
-            findBand()
+            if let band = restoredBand {
+                restoredBand = nil
+                resume(band)
+            } else {
+                findBand()
+            }
         case .poweredOff:
             stop()
             state = .poweredOff
@@ -430,6 +460,16 @@ extension BandConnection: CBCentralManagerDelegate {
             // .unknown or .resetting: iOS will call this again shortly.
             state = .starting
         }
+    }
+
+    /// iOS relaunched the app in the background for the band (state restoration).
+    /// This comes before centralManagerDidUpdateState, which then picks the band up again.
+    func centralManager(_ central: CBCentralManager, willRestoreState dict: [String: Any]) {
+        let bands = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral] ?? []
+        guard let band = bands.first else { return }
+        restoredBand = band
+        band.delegate = self
+        events.add(BandEvent(date: Date(), kind: .info, detail: "Relaunched by iOS for the band"))
     }
 
     func centralManager(_ central: CBCentralManager,
@@ -540,7 +580,7 @@ extension BandConnection: CBPeripheralDelegate {
             return
         }
 
-        // Requests from the band (4002): record them. Nothing is answered yet.
+        // Requests from the band (4002): record them, then pass them on to be answered.
         if characteristic.uuid == WenaGATT.notificationCharacteristic {
             if let error {
                 events.add(BandEvent(date: Date(), kind: .info,

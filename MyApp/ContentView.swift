@@ -2,13 +2,11 @@ import SwiftUI
 import Playgrounds
 
 struct ContentView: View {
-    var body: some View {
-        BandStatusView()
-    }
-}
+    let services: AppServices
 
-#Preview {
-    ContentView()
+    var body: some View {
+        BandStatusView(services: services)
+    }
 }
 
 #Playground {

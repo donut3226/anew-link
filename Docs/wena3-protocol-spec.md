@@ -253,6 +253,8 @@ Tested with the Buckle Link app (commit `2c67349`, read-only screen) on an iPhon
   - **Type 1 get calendar: hourly**, 20 seconds after every second tick.
   - **Type 3 get weather: about every 4 hours** (01:14:42, 05:14:41), 5 seconds after a calendar request. Once it also came straight after a reconnect (20:44), but not after another (22:32).
   - Two "connection has timed out" disconnects were the phone being taken out of range. The app's pending reconnect waited about 1 h 43 min and reconnected by itself; the connection then held from 22:32 to past 05:14.
-  - Answering type 3 with the `0x03` weather packet (and time first) is how Buckle Link now keeps weather fresh in the background. Result on the band: pending.
+  - Answering type 3 with the `0x03` weather packet (and time first) is how Buckle Link now keeps weather fresh in the background. **Confirmed, 9 Nov 2026 (commit `20bf88d`):** 4 requests, each answered within 2-9 seconds, including with the phone locked.
+  - **The band also sends get calendar and get weather straight after (almost) every reconnect** (06:11, 07:11, 07:15, 07:25 on 9 Nov).
+  - **Gap without state restoration:** from 08:12 to 13:47 on 9 Nov the app stayed "Reconnecting" although the band was in range (notifications and calls reached it over iOS's own link). iOS had most likely closed the app, ending its pending connect. State restoration was added next to fix this.
 
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

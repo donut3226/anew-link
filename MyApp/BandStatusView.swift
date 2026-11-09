@@ -1,21 +1,22 @@
 import SwiftUI
 
-/// The first screen: finds the band and shows its firmware, battery and serial.
+/// The first screen: shows the band's firmware, battery and serial, and the send buttons.
 ///
-/// This view owns the Bluetooth object and starts or stops it.
+/// The Bluetooth object and the sync objects live in `AppServices` (created at launch);
+/// this view only shows them.
 /// The drawing itself happens in `BandStatusContent` below, which only takes plain values,
 /// so previews can show every state with fake data and no Bluetooth.
 struct BandStatusView: View {
-    // @State keeps the same BandConnection alive while this screen is on display.
-    @State private var connection = BandConnection()
-    @State private var weatherSync = WeatherSync()
-    @State private var autoSync = AutoSync()
+    let services: AppServices
+    private var connection: BandConnection { services.connection }
+    private var weatherSync: WeatherSync { services.weatherSync }
+    private var autoSync: AutoSync { services.autoSync }
+    private var healthSync: HealthSync { services.healthSync }
+    private var nowPlaying: NowPlayingSync { services.nowPlaying }
     /// The "update automatically" switch, saved in the iPhone's settings store.
     @AppStorage(AutoSync.enabledKey) private var autoUpdate = true
     /// Whether the app is on screen, in the background, or between the two.
     @Environment(\.scenePhase) private var scenePhase
-    @State private var healthSync = HealthSync()
-    @State private var nowPlaying = NowPlayingSync()
     /// The "Show song title on band" switch.
     @AppStorage(NowPlayingSync.enabledKey) private var showSongTitle = false
 
@@ -50,25 +51,9 @@ struct BandStatusView: View {
             musicPermissionDenied: nowPlaying.permissionDenied,
             onSendTestMusic: { Task { await nowPlaying.sendTest() } }
         )
-        .onAppear {
-            connection.start()
-            nowPlaying.attach(to: connection)
-            // The band's requests (spec section 6). Only these two are answered.
-            connection.onBandRequest = { request in
-                switch request.type {
-                case 3:  // Get weather
-                    Task { await autoSync.answerWeatherRequest(connection: connection, weather: weatherSync) }
-                case 11: // Music info
-                    Task { await nowPlaying.answerMusicRequest() }
-                default:
-                    break
-                }
-            }
-        }
         .onChange(of: showSongTitle) {
             Task { await nowPlaying.enabledChanged() }
         }
-        .onDisappear { connection.stop() }
         // Automatic updates: when the band connects, and when the app comes back on screen.
         // AutoSync itself checks the switch and whether an update is actually due.
         .onChange(of: connection.state) { _, newState in

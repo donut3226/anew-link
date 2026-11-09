@@ -496,9 +496,22 @@ extension BandConnection: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager,
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
+        // If we closed it ourselves in stop(), self.peripheral is already nil.
         guard peripheral == self.peripheral else { return }
-        self.peripheral = nil
-        fail("Couldn't connect to the band. \(error?.localizedDescription ?? "")")
+        let reason = error?.localizedDescription ?? "unknown error"
+        events.add(BandEvent(date: Date(), kind: .info, detail: "Connect attempt failed: \(reason)"))
+
+        // This happens for example at the edge of Bluetooth range ("failed to encrypt the
+        // connection"). Don't give up: wait a moment, then ask iOS again. iOS's connect request
+        // never expires, so it simply waits until the band is properly back.
+        state = .reconnecting
+        events.add(BandEvent(date: Date(), kind: .reconnecting, detail: "Reconnecting"))
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            // Still the same band and still waiting? (stop() may have run in the meantime.)
+            guard let self, self.peripheral == peripheral, self.state == .reconnecting else { return }
+            central.connect(peripheral)
+        }
     }
 
     func centralManager(_ central: CBCentralManager,

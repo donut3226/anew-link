@@ -265,6 +265,29 @@ What this says about priorities:
 - Cheapest useful first steps, all simple on/off or number packets: vibration (`0x08`), silent hours (`0x14`), auto power off (`0x15`), step goal (`0x17`), raise to wake and font in the display packet (`0x1A`, which needs all its fields at once, so it waits until the current values are known).
 - The band can't be read back, so like alarms, the app's stored values become the source of truth, and the first send replaces whatever Sony's app set. A "rewrite all settings" button then falls out for free.
 
+### Sony app on the owner's iPhone (looked at through iPhone Mirroring, 10 Nov 2026)
+
+Looked at only: no values changed, nothing saved, Sync, Rewrite settings and the watch-head screen not touched.
+
+- **Sony's app still connects and syncs.** The dashboard showed "09:51 sync" for today, while the app was open, with no login. It read steps (against the step goal), battery, calories, VO2 Max, a notification count and heart rate. So opening Sony's app does talk to the band. Whether its automatic sync also writes settings is unknown, so the advice stands: keep it closed.
+- **Menu:** Application Settings (Account, App colour theme, Start of day, Sync with Apple Health), Device Settings, Payment Settings, Help, plus user shortcuts.
+- **Device Settings list:** Activity, Notification, Vibration, Display, Hardware button, Sleep & Alarm, Disconnection notification, Schedule, Weather, MAMORIO, Alexa, Riiiver, Qrio Lock, Connect watch head, Rewrite settings.
+- **Notification settings (new to us):** a master Off/On, then a list of apps plus "Call", each with Notifications on/off, LED colour, vibration pattern (Nothing, Basic, Short, Double, Triple, Rapid, Step up, Step down, Warning, Siren) and number of vibrations, a "Try this notification pattern on wena" button, and "Add an app to notify". Only listed apps reach the band. Since iPhone notifications arrive by ANCS, the band must hold this per-app table itself, keyed by the iOS app. **That packet is not in the spec**: Gadgetbridge never needs it because on Android it sends notifications itself.
+- **Vibration:** strength shown as Weak, Medium, Strong (spec `0x08`: 0 normal, 1 weak, 2 strong, so Medium = normal), and "Stop vibrating at rest".
+- **Display:** wrist, font size, home screen (left, centre, right icon and Normal or Rich design), tool screen order, status screen order, display time (seconds), raise to wake, language. All in spec `0x1A`/`0x1B`/`0x19`/`0x18`.
+  - Tool screen items (10): weather, alarm, timer, find your phone, camera, music, Alexa, Qrio Lock, payment, settings.
+  - Status screen items (7): Steps, Heart Rate, Calorie, VO2 Max, Stress & Recovery, Sleep, Body Energy.
+- **Hardware button:** long press and double press, each picks an action.
+- **Sleep & Alarm:** auto power off (on/off, start, end), alarms, do not disturb (on/off, start, end).
+- **Disconnection notification:** on/off and elapsed time in seconds. **Packet not in the spec.**
+- **Schedule:** on/off and a tick list of iPhone calendars.
+- **Weather:** shows "support for this feature has ended" (Japanese).
+- **Start of day:** a time (hour). Spec `0x16`.
+
+The owner's current band settings, to send unchanged the first time Anew Link writes each setting (so nothing visibly changes): vibration Medium, stop at rest off; left wrist, normal font, display 7 s, raise to wake on, English; home icons Stress & Recovery / Heart Rate / Steps, Normal design; long press = weather screen, double press = timer screen; auto power off off (22:00-08:00); disconnect alert off (5 s); day start 0:00; step goal 6000 with goal notification on. Body details are left out of this public doc.
+
+**Best way to get the missing packets (per-app notifications, disconnect alert, id tables):** record what Sony's app sends. Install Apple's Bluetooth logging profile on the iPhone, open PacketLogger on the Mac, then press **Rewrite settings** in Sony's app. That re-sends the band's own current settings (no change on the band) and gives us every settings packet as our own capture, which CLAUDE.md allows as a source. It's a band write by Sony's app, so it's the owner's call, and worth doing once before Anew Link starts sending settings.
+
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
 2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.

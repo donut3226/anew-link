@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- The buckle frame, drawn as a loop arrow ("anew"). -->
+  <path d="M762 414 L762 412 A90 90 0 0 0 672 322 L352 322 A90 90 0 0 0 262 412 L262 612 A90 90 0 0 0 352 702 L672 702 A90 90 0 0 0 762 612 L762 604"
+        fill="none" stroke="#FFFFFF" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M665 606 L859 606 L762 493 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"/>
+</svg>

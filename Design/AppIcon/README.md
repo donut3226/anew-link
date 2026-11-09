@@ -4,6 +4,7 @@
 
 - `concepts/`: all nine concept SVGs (1024 x 1024). 7 and 9 are the sources of the app icon.
 - The app's icon set is `MyApp/Assets.xcassets/AppIcon.appiconset`: `AppIcon.png` (7), `AppIcon-Dark.png` (9), `AppIcon-Tinted.png` (9 in grey, which iOS colours in Tinted mode). The PNGs were rendered from the SVGs with Quick Look (WebKit) and flattened to 1024 x 1024 with no transparency, as Apple requires.
+- In-app choice (`MyApp/AppIconPicker.swift`): Automatic (the main set above), Sunrise always (`AppIcon-Sunrise.appiconset`) or Night always (`AppIcon-Night.appiconset`), registered in `ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES`.
 - To change the icon: edit the SVG, render it again, and replace the PNGs.
 
 ## Earlier attempt: "renew buckle" (not used)

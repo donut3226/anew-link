@@ -215,6 +215,8 @@ struct BandStatusContent: View {
                     #endif
                 }
 
+                AppIconSection()
+
                 #if DEBUG
                 if let eventLog {
                     bandRequestsSection(eventLog)

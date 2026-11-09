@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" gradientUnits="userSpaceOnUse" cx="512" cy="380" r="800"><stop offset="0" stop-color="#3A2378"/><stop offset="1" stop-color="#0A0716"/></radialGradient>
+    <linearGradient id="coral" gradientUnits="userSpaceOnUse" x1="402" y1="0" x2="622" y2="0"><stop offset="0" stop-color="#FF7A6B"/><stop offset="1" stop-color="#F23A6A"/></linearGradient>
+    <linearGradient id="teal" gradientUnits="userSpaceOnUse" x1="402" y1="0" x2="622" y2="0"><stop offset="0" stop-color="#2EE6CF"/><stop offset="1" stop-color="#0E9F92"/></linearGradient>
+    <radialGradient id="gold" gradientUnits="userSpaceOnUse" cx="460" cy="430" r="250"><stop offset="0" stop-color="#FFE68A"/><stop offset="1" stop-color="#FFAE12"/></radialGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="40"/></filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="512" r="230" fill="#FFB21E" opacity="0.45" filter="url(#glow)"/>
+  <g transform="rotate(-40 512 512)">
+    <rect x="402" y="-260" width="220" height="700" rx="110" fill="url(#coral)"/>
+    <rect x="402" y="584" width="220" height="760" rx="110" fill="url(#teal)"/>
+    <circle cx="512" cy="760" r="20" fill="#1A1235"/>
+    <circle cx="512" cy="840" r="20" fill="#1A1235"/>
+    <circle cx="512" cy="920" r="20" fill="#1A1235"/>
+  </g>
+  <circle cx="512" cy="512" r="190" fill="url(#gold)" stroke="#E39A00" stroke-width="22"/>
+  <circle cx="512" cy="512" r="138" fill="#1E1440"/>
+  <g transform="translate(512 512) scale(0.3) translate(-512 -512)"><g transform="rotate(100 512 512)">
+      <path d="M718.8 338.4 A270 270 0 1 1 419.7 258.3" fill="none" stroke="#FFFFFF" stroke-width="120" stroke-linecap="round"/>
+      <path d="M371.8 126.7 L467.6 389.9 L570.1 203.6 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="16" stroke-linejoin="round"/>
+    </g></g>
+</svg>

@@ -77,7 +77,27 @@ Worth knowing from Gadgetbridge issue #4417 (still open, firmware 2.40JP): an ow
 
 **Music text**: `0x05`, length (1 byte, number of UTF-8 bytes that follow), then the text. Text is "Track / Artist", trimmed and truncated to 99 characters. Empty string clears the display. Author's note: Gadgetbridge clears the text on pause, which makes the title vanish on a brief pause. This is a design choice we can improve. Not relevant on iOS in practice (no access to other apps' now-playing data), listed for completeness.
 
-**Calendar entries**: opcode and layout **not yet extracted**. Gadgetbridge sends up to 255 entries, each with start, end, all-day flag, title, location, index and total count, or a special "empty" entry when disabled.
+**Calendar entries** (extracted 9 Nov 2026 from the mirror snapshot, **UNVERIFIED** on our band): one write to 4002 per event, little-endian, 14 bytes plus the two texts:
+
+| Offset | Size | Field |
+|---|---|---|
+| 0 | 1 | marker `0x02` |
+| 1 | 1 | position of this event in the list, **1-based** (1, 2, 3...) |
+| 2 | 1 | total number of events in the list |
+| 3 | 1 | title length in UTF-8 bytes |
+| 4 | 1 | location length in UTF-8 bytes |
+| 5 | 1 | all-day flag: 1 = all day, 0 = timed |
+| 6 | 4 | start, Wena timestamp (int32) |
+| 10 | 4 | end, Wena timestamp (int32) |
+| 14 | n | title, UTF-8, no terminator |
+| 14+n | m | location, UTF-8, no terminator |
+
+- The whole list is re-sent each time (position 1 of N up to N of N), at most 255 events. Gadgetbridge sends it on connect, on each type 1 "get calendar" request, and whenever the phone's calendar changes.
+- **Empty list**: a single 14-byte packet `02 00 00 00 00 00` followed by eight zero bytes (position 0, total 0, no texts, zero times). Gadgetbridge sends this when calendar sync is switched off or there are no events.
+- **All-day events**: Gadgetbridge passes Android's all-day times unchanged, and Android stores those at **00:00 UTC** of the event's date (end = start + whole days). So the band most likely expects an all-day event's start at midnight UTC of the calendar date, not local midnight. We follow that.
+- Text lengths are single bytes, so each text must be at most 255 bytes. Gadgetbridge does not shorten them; we cap both to stay well inside the band's small screen and the BLE write size.
+- Which events and how far ahead are the phone app's choice (Gadgetbridge uses its general calendar sync window).
+- The separate settings packet `0x12` (calendar and notification toggles, section 9) is **not** needed to send entries. Our band already asks for the calendar hourly, which suggests its calendar is switched on.
 
 ## 6. Requests the band sends to the phone (notify on 4002)
 
@@ -138,9 +158,34 @@ On iPhone the band should get notifications through ANCS with no app involved, s
 
 **Risk to check before writing any settings from iOS:** one settings packet carries "calendar enabled" and "notifications enabled" toggles. If those toggles also gate the band's ANCS handling, writing them wrongly could switch off the notifications that already work. Do not send that packet until we understand it on hardware.
 
-## 9. Not yet extracted (next reads)
+## 9. Settings packets (written to 1514; extracted 9 Nov 2026, all **UNVERIFIED** on our band)
 
-Settings opcodes and layouts for: display, do-not-disturb, auto power off, vibration, home screen icons, menu icons, status pages, alarms (9 slots), step goal, day start hour, button actions, camera app type, calendar and notification toggles. Plus the calendar entry packet and the behaviour, VO2, stress, energy and calories parsers.
+All of these are written to the control characteristic 1514, little-endian. The first byte is the setting's opcode. None of them has been sent by us. Per CLAUDE.md, settings are tested one packet at a time, and **`0x12` is not to be sent** until we understand whether it can switch off ANCS notifications.
+
+| Opcode | Setting | Bytes after the opcode |
+|---|---|---|
+| `0x06` | Alarms, 3 per packet | three slots of: slot index (1 byte), then 5 alarm bytes (below). 18 bytes, 19 in total |
+| `0x08` | Vibration | strength (0 normal, 1 weak, 2 strong), smart vibration (1/0) |
+| `0x12` | Calendar and notification toggles (**do not send**) | notifications enabled (1/0), calendar enabled (1/0) |
+| `0x14` | Do not disturb | enabled (1/0), start hour, start minute, end hour, end minute |
+| `0x15` | Auto power off | enabled (1/0), start hour, start minute, end hour, end minute |
+| `0x16` | Day start hour | hour (1 byte) |
+| `0x17` | Step goal | goal notification (1/0), goal steps (int32) |
+| `0x18` | Status page order | one byte per page id, in order |
+| `0x19` | Menu icons | one byte per icon id, in order |
+| `0x1A` | Display | font size (0 normal, 1 large), orientation (0 right hand, 1 left hand), language (0 English, 1 Japanese), wake on raise (1/0), design (0 normal, 1 rich), weather in status bar (1/0), display duration in seconds |
+| `0x1B` | Home screen icons | left, centre, right icon ids (int16 each) |
+| `0x1C` | Button actions | long press action, double click action (int16 each) |
+| `0x21` | Camera app type | 1 = Xperia camera app, 0 = other |
+
+**Alarms** (9 slots, sent as three `0x06` packets for slots 0-2, 3-5 and 6-8; every packet always carries 3 slots):
+- Each slot: slot index (0-8), then 5 bytes: state (`0x02` on, `0x01` off, `0x00` empty slot), repeat days, smart wake-up margin in minutes (0 = off), hour, minute.
+- An empty slot is the slot index followed by five zero bytes.
+- **Repeat days** bitmask on the wire: bit 0 Sunday, bit 1 Monday, bit 2 Tuesday, bit 3 Wednesday, bit 4 Thursday, bit 5 Friday, bit 6 Saturday. (Gadgetbridge converts from its own Monday-first mask.) 0 most likely means "once".
+- Example (made up): slot 0 on, weekdays, no smart margin, 06:30 = `00 02 3E 00 06 1E`.
+- Sending alarms replaces all 9 slots, so the phone must always send the complete set.
+
+Not extracted yet: the id tables for home icons, menu icons, status pages and button actions, the body properties packet details (section 4), and the behaviour, VO2, stress, energy and calories activity parsers.
 
 ## 10. Safe verification plan (read-only first)
 

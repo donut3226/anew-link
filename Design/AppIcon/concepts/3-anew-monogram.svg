@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1024" y2="1024">
+      <stop offset="0" stop-color="#2F7BFF"/><stop offset="1" stop-color="#8A3FFC"/>
+    </linearGradient>
+    <radialGradient id="hi" gradientUnits="userSpaceOnUse" cx="230" cy="160" r="620">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.32"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="270" x2="0" y2="760">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E2E4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#hi)"/>
+  <g transform="translate(20 24)" opacity="0.55">
+    <circle cx="485" cy="519" r="170" fill="none" stroke="#17106A" stroke-width="112"/>
+    <rect x="653" y="279" width="112" height="466" rx="56" fill="#17106A"/>
+  </g>
+  <circle cx="485" cy="519" r="170" fill="none" stroke="url(#ink)" stroke-width="112"/>
+  <rect x="653" y="279" width="112" height="466" rx="56" fill="url(#ink)"/>
+  <path d="M832 130 C842 185 857 190 902 200 C857 210 842 215 832 270 C822 215 807 210 762 200 C807 190 822 185 832 130 Z" fill="#FFE36B"/>
+  <path d="M220 160 C225 186 232 189 254 194 C232 199 225 202 220 228 C215 202 208 199 186 194 C208 189 215 186 220 160 Z" fill="#FFFFFF" opacity="0.85"/>
+</svg>

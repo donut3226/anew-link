@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" gradientUnits="userSpaceOnUse" cx="512" cy="280" r="840">
+      <stop offset="0" stop-color="#4E39DE"/><stop offset="1" stop-color="#100938"/>
+    </radialGradient>
+    <linearGradient id="strap" gradientUnits="userSpaceOnUse" x1="392" y1="0" x2="632" y2="0">
+      <stop offset="0" stop-color="#27198A"/><stop offset="0.5" stop-color="#3B2BB6"/><stop offset="1" stop-color="#1F1470"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-60%" width="140%" height="220%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="20" stdDeviation="26" flood-color="#05031A" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect x="392" y="-40" width="240" height="1104" rx="120" fill="url(#strap)"/>
+  <line x1="420" y1="0" x2="420" y2="1024" stroke="#9A8CFF" stroke-opacity="0.45" stroke-width="6" stroke-dasharray="22 16"/>
+  <line x1="604" y1="0" x2="604" y2="1024" stroke="#9A8CFF" stroke-opacity="0.45" stroke-width="6" stroke-dasharray="22 16"/>
+  <rect x="322" y="382" width="380" height="260" rx="86" fill="#0B0726" stroke="#8070FF" stroke-opacity="0.7" stroke-width="10" filter="url(#sh)"/>
+  <polyline points="70,512 330,512 385,430 440,610 500,330 565,690 620,512 954,512" fill="none" stroke="#B6FF3B" stroke-width="54" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)" opacity="0.85"/>
+  <polyline points="70,512 330,512 385,430 440,610 500,330 565,690 620,512 954,512" fill="none" stroke="#DDFF85" stroke-width="38" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

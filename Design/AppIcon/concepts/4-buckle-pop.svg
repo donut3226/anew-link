@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="200" y1="0" x2="824" y2="1024">
+      <stop offset="0" stop-color="#FFD84A"/><stop offset="1" stop-color="#FF8A1F"/>
+    </linearGradient>
+    <radialGradient id="hi" gradientUnits="userSpaceOnUse" cx="260" cy="150" r="640">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.45"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="navy" gradientUnits="userSpaceOnUse" x1="0" y1="272" x2="0" y2="780">
+      <stop offset="0" stop-color="#2B3F80"/><stop offset="1" stop-color="#0E1838"/>
+    </linearGradient>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="26" stdDeviation="28" flood-color="#8A3A00" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#hi)"/>
+  <rect x="362" y="-60" width="300" height="1144" rx="150" fill="#FFFFFF" fill-opacity="0.4"/>
+  <g filter="url(#sh)">
+    <path d="M792 412 A110 110 0 0 0 682 302 L342 302 A110 110 0 0 0 232 412 L232 612 A110 110 0 0 0 342 722 L682 722 A110 110 0 0 0 792 612 L792 606" fill="none" stroke="url(#navy)" stroke-width="110" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M697 612 L887 612 L792 507 Z" fill="url(#navy)" stroke="url(#navy)" stroke-width="14" stroke-linejoin="round"/>
+    <rect x="484" y="272" width="56" height="450" rx="28" fill="url(#navy)"/>
+  </g>
+</svg>

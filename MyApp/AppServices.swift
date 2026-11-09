@@ -19,11 +19,12 @@ final class AppServices {
     func start() {
         nowPlaying.attach(to: connection)
 
-        // The band's requests (spec section 6). Only these four are answered. The 30-minute
-        // sync tick (type 0) is only logged: activity syncs when the app opens, to save battery.
+        // The band's requests (spec section 6). Only these five are answered.
         connection.onBandRequest = { [weak self] request in
             guard let self else { return }
             switch request.type {
+            case 0:  // Sync tick, every 30 minutes: activity syncs if 2 hours have passed
+                Task { await self.activityAutoSync.runIfDue(connection: self.connection, health: self.healthSync) }
             case 1:  // Get calendar, about once an hour
                 Task {
                     if let outcome = await self.calendarSync.answerRequest(connection: self.connection) {

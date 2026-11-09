@@ -18,19 +18,20 @@ nonisolated enum ActivityWindow {
         return max(lastSaved.addingTimeInterval(-overlap), earliest)
     }
 
-    /// An automatic sync runs when the app opens, at most this often.
-    static let minGap: TimeInterval = 30 * 60
+    /// Automatic syncs run at most this often. Every 30 minutes was too often for the band;
+    /// every 2 hours keeps Health reasonably fresh with little work for the band.
+    static let minGap: TimeInterval = 2 * 60 * 60
 
-    /// Whether opening the app should sync: never saved, or the last save is at least `minGap` old.
+    /// Whether an automatic sync is due: never saved, or the last save is at least `minGap` old.
     static func isDue(lastSaved: Date?, now: Date) -> Bool {
         guard let lastSaved else { return true }
         return now.timeIntervalSince(lastSaved) >= minGap
     }
 }
 
-/// Syncs activity and saves it to Apple Health when the app opens (on demand), if the last
-/// save is at least 30 minutes old. Not on the band's 30-minute sync tick: streaming activity
-/// that often drained the band's battery noticeably.
+/// Syncs activity and saves it to Apple Health about every 2 hours, also with the phone locked:
+/// checked on the band's 30-minute sync tick (request type 0) and when the app opens or
+/// connects, and run only when the last save is at least 2 hours old (`ActivityWindow.isDue`).
 ///
 /// Only runs while its switch is on and after Health has been allowed once (with the
 /// Save to Apple Health button), so it never shows a popup. If a save fails, the next tick
@@ -65,12 +66,10 @@ final class ActivityAutoSync {
         lastSave = syncedAt
     }
 
-    /// The app came on screen or connected. The result goes in the band log.
+    /// Called on the band's sync tick and when the app opens or connects. Does nothing unless
+    /// a sync is due. The result goes in the band log.
     func runIfDue(connection: BandConnection, health: HealthSync) async {
-        // Only with the app on screen (a reconnect in the background doesn't count),
-        // and only when the band is there to ask.
-        guard UIApplication.shared.applicationState == .active,
-              connection.state == .connected,
+        guard connection.state == .connected,
               ActivityWindow.isDue(lastSaved: lastSave, now: Date()) else { return }
         guard let outcome = await run(connection: connection, health: health) else { return }
         connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))

@@ -13,7 +13,7 @@ Working on a real band (tested on firmware 2.40JP):
 - Firmware, battery and serial (read-only)
 - Time and time zone, kept right automatically
 - 5-day weather, updated automatically (every 2 to 3 hours at most), also with the phone locked
-- Steps and heart rate saved to Apple Health, automatically when you open the app
+- Steps and heart rate saved to Apple Health automatically, about every 2 hours
 - Song title from Apple Music on the band's music screen
 - Find my phone: the band's find-phone button rings the iPhone
 - Your upcoming calendar events on the band

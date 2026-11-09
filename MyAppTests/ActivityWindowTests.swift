@@ -29,7 +29,7 @@ struct ActivityWindowTests {
     }
 }
 
-/// Checks when opening the app syncs activity again.
+/// Checks when an automatic activity sync is due (every 2 hours).
 struct ActivityOnOpenTests {
 
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
@@ -38,11 +38,11 @@ struct ActivityOnOpenTests {
         #expect(ActivityWindow.isDue(lastSaved: nil, now: now))
     }
 
-    @Test func notDueTwentyMinutesLater() {
-        #expect(!ActivityWindow.isDue(lastSaved: now.addingTimeInterval(-20 * 60), now: now))
+    @Test func notDueNinetyMinutesLater() {
+        #expect(!ActivityWindow.isDue(lastSaved: now.addingTimeInterval(-90 * 60), now: now))
     }
 
-    @Test func dueAfterThirtyMinutes() {
-        #expect(ActivityWindow.isDue(lastSaved: now.addingTimeInterval(-30 * 60), now: now))
+    @Test func dueAfterTwoHours() {
+        #expect(ActivityWindow.isDue(lastSaved: now.addingTimeInterval(-2 * 60 * 60), now: now))
     }
 }

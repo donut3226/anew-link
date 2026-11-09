@@ -236,6 +236,35 @@ Open questions that only stuck owners can answer (put in the tester notes):
 
 Next: build the flow, then open external TestFlight and invite stuck owners to test it.
 
+### Sony app vs Anew Link (from Sony's help guide pages 13-19, 10 Nov 2026)
+
+What Sony's wena 3 app did, and where Anew Link stands. "Spec" points to the protocol spec; every band write still follows the one-packet-at-a-time rule.
+
+| Sony app feature | What it did | Anew Link | Packet |
+|---|---|---|---|
+| Sync button / pull down on dashboard | Read activity, battery, notification history; sync time | Done: time, battery, activity (automatic, every 2 h) | `0x10`, `0x11`, 3002 |
+| Dashboard and history (Day/Week/Month/Year) | Steps, calories, distance, heart rate zones, sleep, stress, body energy, VO2 Max | Steps and heart rate go to Apple Health, which shows the history. Sleep, stress, body energy, VO2, calories: parsers not extracted | Spec 7 |
+| Activity log settings | Birth date, gender, height, weight, resting heart rate, goal notification, step goal | Not built. Step goal is a candidate; body properties unverified; resting heart rate is not in the spec (may be app-side only) | `0x17`, `0x1D` |
+| Day start time | When the activity day starts | Not built | `0x16` |
+| Notification settings | On/off, per-app and calls LED colour, vibration pattern and count | Not built. On iPhone the band gets notifications through ANCS; how Sony set per-app LED and vibration for ANCS is unknown (not in the spec) | `0x12` (do not send) |
+| Vibration | Weak, medium, strong; stop vibrating when still for over a minute | Not built | `0x08` |
+| Display | Wrist, font size, home icons (3) and normal/rich design, tool menu order, status page order, raise to wake, language | Not built. Id tables for icons, menu and pages not extracted | `0x1A`, `0x1B`, `0x19`, `0x18` |
+| Button shortcuts | Long press and double click: music, NFC, silent, find phone, timer, weather, music screens | Not built. Action id table not extracted | `0x1C` |
+| Night settings | Auto power off window, alarms (9, repeat days, smart window), silent hours | Alarms built (on-band test pending). Auto power off and silent hours not built | `0x06`, `0x15`, `0x14` |
+| Disconnect alert | Band buzzes when the phone link drops, after a set time | Not built; packet not in the spec | Unknown |
+| Calendar | Choose which calendars go to the band | Done (next 7 days). Calendar choice not built | `0x02` on 4002 |
+| Weather | Location for weather; weather icon on the home screen | Done (current location). Status bar icon is part of the display packet | `0x03` on 4002, `0x1A` |
+| Rewrite settings | Re-send every setting to the band | Not built. Useful after a reset or forced reset, once settings exist | All of the above |
+| Find my phone, music text | Ring the phone; song title on the band | Done | Requests 2 and 11 |
+| Firmware version and update | Show versions; update the band | Version shown. Updates out of scope | 1520 |
+| Shortcuts, colour theme, help | App-only conveniences | iOS dark mode covers the theme; help is the app's own text | None |
+| Account, Suica, Edy, iD/QUICPay, Alexa, Qrio setup | Cloud and payment services | Can't come back (servers gone) | None |
+
+What this says about priorities:
+- **Band settings are the main gap.** Most packets are already in spec 9; the missing parts are the id tables (icons, menu, pages, buttons) and a disconnect-alert packet.
+- Cheapest useful first steps, all simple on/off or number packets: vibration (`0x08`), silent hours (`0x14`), auto power off (`0x15`), step goal (`0x17`), raise to wake and font in the display packet (`0x1A`, which needs all its fields at once, so it waits until the current values are known).
+- The band can't be read back, so like alarms, the app's stored values become the source of truth, and the first send replaces whatever Sony's app set. A "rewrite all settings" button then falls out for free.
+
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
 2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.

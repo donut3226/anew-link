@@ -13,17 +13,24 @@ final class AppServices {
     let healthSync = HealthSync()
     let nowPlaying = NowPlayingSync()
     let findPhone = FindPhone()
+    let calendarSync = CalendarSync()
 
     /// Called once, at launch.
     func start() {
         nowPlaying.attach(to: connection)
 
-        // The band's requests (spec section 6). Only these four are answered.
+        // The band's requests (spec section 6). Only these five are answered.
         connection.onBandRequest = { [weak self] request in
             guard let self else { return }
             switch request.type {
             case 0:  // Sync tick, every 30 minutes
                 Task { await self.activityAutoSync.answerSyncTick(connection: self.connection, health: self.healthSync) }
+            case 1:  // Get calendar, about once an hour
+                Task {
+                    if let outcome = await self.calendarSync.answerRequest(connection: self.connection) {
+                        self.connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
+                    }
+                }
             case 2:  // Locate phone
                 Task {
                     let outcome = await self.findPhone.bandAsked()

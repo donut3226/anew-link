@@ -15,6 +15,9 @@ struct BandStatusView: View {
     private var nowPlaying: NowPlayingSync { services.nowPlaying }
     private var activityAutoSync: ActivityAutoSync { services.activityAutoSync }
     private var findPhone: FindPhone { services.findPhone }
+    private var calendarSync: CalendarSync { services.calendarSync }
+    /// The "Show calendar on band" switch.
+    @AppStorage(CalendarSync.enabledKey) private var showCalendar = false
     /// The "Ring when the band looks for this phone" switch.
     @AppStorage(FindPhone.enabledKey) private var findPhoneEnabled = false
     /// The "Save activity to Apple Health automatically" switch.
@@ -68,8 +71,15 @@ struct BandStatusView: View {
             findPhoneLastRequest: findPhone.lastRequest,
             findPhonePermissionDenied: findPhone.permissionDenied,
             onStopRinging: { findPhone.stop() },
-            onTestFindPhone: { Task { _ = await findPhone.bandAsked() } }
+            onTestFindPhone: { Task { _ = await findPhone.bandAsked() } },
+            showCalendar: $showCalendar,
+            calendar: calendarSync.status,
+            calendarPermissionDenied: calendarSync.permissionDenied,
+            onSendTestCalendar: { Task { await calendarSync.sendTest(using: connection) } }
         )
+        .onChange(of: showCalendar) {
+            Task { await calendarSync.enabledChanged(connection: connection) }
+        }
         .onChange(of: findPhoneEnabled) {
             Task { await findPhone.enabledChanged() }
         }
@@ -139,6 +149,10 @@ struct BandStatusContent: View {
     var findPhonePermissionDenied = false
     var onStopRinging: () -> Void = {}
     var onTestFindPhone: () -> Void = {}
+    var showCalendar: Binding<Bool> = .constant(false)
+    var calendar: CalendarSync.Status = .idle
+    var calendarPermissionDenied = false
+    var onSendTestCalendar: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -180,6 +194,15 @@ struct BandStatusContent: View {
                         Text("Music")
                     } footer: {
                         Text("Shows the song playing in Apple Music when you open the band's music screen. The band's play, skip and volume buttons work through iOS already.")
+                    }
+
+                    Section {
+                        Toggle("Show calendar on band", isOn: showCalendar)
+                        calendarRow
+                    } header: {
+                        Text("Calendar")
+                    } footer: {
+                        Text("Sends the next 7 days of events (up to 30) when the band asks, about once an hour. Read-only: your calendar is never changed.")
                     }
 
                     Section {
@@ -242,6 +265,8 @@ struct BandStatusContent: View {
                         Button("Test: send music text", action: onSendTestMusic)
                             .disabled(isBusy)
                         Button("Test: find my phone", action: onTestFindPhone)
+                        Button("Test: send test calendar", action: onSendTestCalendar)
+                            .disabled(isBusy)
                         if !rawActivityHex.isEmpty {
                             ShareLink("Share raw activity packets", item: rawActivityHex)
                         }
@@ -365,6 +390,29 @@ struct BandStatusContent: View {
         case .failed(let message):
             Label(message, systemImage: "exclamationmark.triangle")
                 .foregroundStyle(.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var calendarRow: some View {
+        if calendarPermissionDenied {
+            Label("Calendar access is off. Turn it on in Settings > Privacy & Security > Calendars > Anew Link.",
+                  systemImage: "hand.raised")
+                .foregroundStyle(.orange)
+        } else {
+            switch calendar {
+            case .idle:
+                EmptyView()
+            case .sent(let count, let at, let test):
+                Label(test ? "Test calendar sent at \(Self.clock(at))"
+                           : (count == 0 ? "No upcoming events, sent at \(Self.clock(at))"
+                                         : "Sent \(count) events at \(Self.clock(at))"),
+                      systemImage: test ? "testtube.2" : "calendar")
+                    .foregroundStyle(test ? .orange : .green)
+            case .failed(let message):
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
         }
     }
 

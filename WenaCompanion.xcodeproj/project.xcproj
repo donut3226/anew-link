@@ -48,6 +48,7 @@
         "INFOPLIST_KEY_CFBundleDisplayName": "Anew Link",
         "INFOPLIST_KEY_NSAppleMusicUsageDescription": "Anew Link shows the song that's playing in Apple Music on your band.",
         "INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription": "Anew Link uses Bluetooth to connect to your band, read its battery level, and send it the time, weather and song titles.",
+        "INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription": "Anew Link shows your upcoming calendar events on your band. It only reads your calendar and never changes it.",
         "INFOPLIST_KEY_NSHealthUpdateUsageDescription": "Anew Link saves steps and heart rate from your band to Apple Health.",
         "INFOPLIST_KEY_NSLocationWhenInUseUsageDescription": "Anew Link uses your approximate location to get the weather forecast for your band.",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",

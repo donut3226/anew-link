@@ -8,20 +8,26 @@ Sony ended Wena 3 support and services on 28 February 2026, so its official app 
 
 ## Status
 
-Early days. The project is set up and builds, but no Bluetooth features exist yet.
+Working on a real band (tested on firmware 2.40JP):
 
-Planned, in this order:
+- Firmware, battery and serial (read-only)
+- Time and time zone, kept right automatically
+- 5-day weather, updated automatically when the band asks (about every 4 hours), also with the phone locked
+- Steps and heart rate saved to Apple Health, automatically about every 30 minutes
+- Song title from Apple Music on the band's music screen
+- Find my phone: the band's find-phone button rings the iPhone
+- Stays connected in the background and reconnects by itself
+- Demo mode, to try every screen without a band
 
-1. Connect to an already-paired band, show firmware version and battery level (read-only)
-2. Time and time zone sync
-3. Weather
-4. Calendar
-5. Band settings
-6. Activity and heart rate into Apple Health (needs band firmware 2.40 or later)
+Built, waiting for a test on the band: calendar events on the band, and automatic Health saving while the phone is locked.
 
-Notifications are not on the list because iPhone already sends them to the band through Apple's standard accessory notification service (ANCS), with no app needed.
+Next: alarms and band settings (vibration, display, do not disturb), one packet at a time.
 
-Not possible: Suica, Alexa, Riiiver, MAMORIO, Qrio and other features that relied on Sony's servers. Firmware updates are out of scope.
+Notifications, calls and the band's music controls already work through iOS with no app needed (Apple's standard accessory services).
+
+Not possible: Suica, iD, QUICPay, Alexa, Riiiver and Qrio, which relied on Sony's or other companies' servers. Firmware updates are out of scope. MAMORIO runs through its own app.
+
+Privacy: no accounts, no analytics, nothing sent to us. See [`Docs/privacy-policy.md`](Docs/privacy-policy.md).
 
 ## A word of caution
 
@@ -33,7 +39,7 @@ Not possible: Suica, Alexa, Riiiver, MAMORIO, Qrio and other features that relie
 Requirements: a Mac with Xcode 27.2 or later, and an iPhone on iOS 27.2 or later. The iOS Simulator has no Bluetooth, so band features need a real iPhone.
 
 1. Open `WenaCompanion.xcodeproj` in Xcode.
-2. Pick your iPhone (with Developer Mode on) or a simulator as the run destination.
+2. Pick your iPhone (with Developer Mode on) or a simulator as the run destination. In the simulator, tap **Try the demo**.
 3. Press Cmd+R.
 
 Or from the terminal:

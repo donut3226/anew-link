@@ -12,7 +12,7 @@ Free, open-source, non-profit iOS companion app for the Sony Wena 3 band, built 
 - Never write to the band unless the packet is verified in the spec. Safe order: read-only, then time, then weather.
 - Never unpair, reset or update the firmware of the band.
 - Never put the band's serial, address or SEID in code, tests or commits.
-- Explain Swift and Xcode concepts in plain words as you go, and make small steps.
+- Summarise what changed in plain words after each piece of work.
 - Commit to git after each working step. Run builds with xcodebuild and tell me the result.
 - Use hyphens, never em dashes.
 
@@ -24,7 +24,7 @@ A free, open-source, non-profit, **unofficial** iOS companion app for the Sony W
 - `Docs/wena3-ios-companion-plan.md` - goals, decisions, roadmap (phases), cautions, open questions.
 - `Docs/wena3-protocol-spec.md` - BLE wire format (UUIDs, opcodes, byte layouts, activity sync, CRC-16). This is the source of truth for anything sent to the band. Items marked **UNVERIFIED** or "not yet extracted" are not safe to implement as writes.
 
-The owner is a first-time iOS developer: **explain Swift/SwiftUI/iOS concepts as you go.**
+The owner wants ideas turned into working features end to end (see `~/.claude/CLAUDE.md`); summarise changes in plain words rather than teaching step by step.
 
 ## Hard rules
 

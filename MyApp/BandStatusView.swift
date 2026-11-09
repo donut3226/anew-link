@@ -13,6 +13,9 @@ struct BandStatusView: View {
     private var autoSync: AutoSync { services.autoSync }
     private var healthSync: HealthSync { services.healthSync }
     private var nowPlaying: NowPlayingSync { services.nowPlaying }
+    private var activityAutoSync: ActivityAutoSync { services.activityAutoSync }
+    /// The "Save activity to Apple Health automatically" switch.
+    @AppStorage(ActivityAutoSync.enabledKey) private var autoSaveActivity = true
     /// The "update automatically" switch, saved in the iPhone's settings store.
     @AppStorage(AutoSync.enabledKey) private var autoUpdate = true
     /// Whether the app is on screen, in the background, or between the two.
@@ -42,8 +45,15 @@ struct BandStatusView: View {
             onSaveToHealth: {
                 guard case .done(let result) = connection.activity else { return }
                 let firmware = connection.info?.firmwareName
-                Task { await healthSync.save(result.samples, firmware: firmware) }
+                Task {
+                    // A full 24-hour save also counts for the automatic sync's starting point.
+                    if await healthSync.save(result.samples, firmware: firmware) {
+                        activityAutoSync.recordSave(syncedAt: result.syncedAt)
+                    }
+                }
             },
+            autoSaveActivity: $autoSaveActivity,
+            lastActivitySave: activityAutoSync.lastSave,
             eventLog: connection.events,
             isListeningForRequests: connection.isListeningForRequests,
             showSongTitle: $showSongTitle,
@@ -102,6 +112,8 @@ struct BandStatusContent: View {
     var onSendTestWeather: () -> Void = {}
     var onSyncActivity: () -> Void = {}
     var onSaveToHealth: () -> Void = {}
+    var autoSaveActivity: Binding<Bool> = .constant(true)
+    var lastActivitySave: Date?
     /// The band request log (debug section only). nil in previews.
     var eventLog: BandEventLog?
     var isListeningForRequests = false
@@ -166,6 +178,9 @@ struct BandStatusContent: View {
                         Button("Sync activity (last 24 h)", action: onSyncActivity)
                             .disabled(isBusy || info?.supportsActivitySync == false)
                         activityRows
+                        Toggle("Save to Apple Health automatically", isOn: autoSaveActivity)
+                        LabeledContent("Last saved",
+                                       value: lastActivitySave.map { Self.dayAndTime($0) } ?? "Not yet")
                     } header: {
                         Text("Activity")
                     } footer: {
@@ -175,7 +190,7 @@ struct BandStatusContent: View {
                         case nil:
                             Text("Couldn't read the firmware version. Activity sync needs 2.40 or later.")
                         case true?:
-                            Text("Steps and heart rate, read from the band. Tap Save to Apple Health after a sync to keep them.")
+                            Text("Steps and heart rate, read from the band. Automatic saving runs about every 30 minutes, after you've tapped Save to Apple Health once to allow it.")
                         }
                     }
 
@@ -322,6 +337,10 @@ struct BandStatusContent: View {
             busyRow("Asking the band for activity data…")
         case .receiving(let packets):
             busyRow("Receiving… \(packets) packets")
+        case .done(let result) where result.automatic:
+            // An automatic sync only fetched the newest data, so there's no full-day summary.
+            LabeledContent("Automatic sync", value: "\(Self.clock(result.syncedAt)), \(result.samples.count) samples")
+            healthRow
         case .done(let result):
             let summary = result.summary
             LabeledContent("Steps today", value: "\(summary.stepsToday)")

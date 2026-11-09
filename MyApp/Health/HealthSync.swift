@@ -26,30 +26,46 @@ final class HealthSync {
         status == .asking || status == .saving
     }
 
+    /// True if saving steps is already allowed, so saving won't show the Health popup.
+    /// Automatic saves only run when this is true.
+    var canSaveWithoutAsking: Bool {
+        HKHealthStore.isHealthDataAvailable()
+            && store.authorizationStatus(for: Self.stepType) == .sharingAuthorized
+    }
+
+    /// Returns true if the save worked (or there was nothing to save).
+    ///
+    /// It also works with the iPhone locked: Health keeps the new data and stores it once
+    /// the phone is unlocked (Apple's documented behaviour for writing while locked).
+    ///
     /// - Parameters:
     ///   - samples: from the last activity sync.
     ///   - firmware: the band's firmware name, stored with each sample so Health shows which device it came from.
-    func save(_ samples: [ActivitySample], firmware: String?) async {
-        guard !isBusy else { return }
+    ///   - askPermission: false for automatic saves, which must never show a popup.
+    @discardableResult
+    func save(_ samples: [ActivitySample], firmware: String?, askPermission: Bool = true) async -> Bool {
+        guard !isBusy else { return false }
         guard HKHealthStore.isHealthDataAvailable() else {
             status = .failed("Apple Health isn't available on this device.")
-            return
+            return false
         }
         let records = HealthRecords.make(from: samples)
         guard !records.isEmpty else {
             status = .done(steps: 0, heartRates: 0, notAllowed: 0)
-            return
+            return true
         }
 
         do {
-            status = .asking
-            // Shows the Health popup the first time. "read: []" because we never read.
-            try await store.requestAuthorization(toShare: [Self.stepType, Self.heartRateType], read: [])
+            if askPermission {
+                status = .asking
+                // Shows the Health popup the first time. "read: []" because we never read.
+                try await store.requestAuthorization(toShare: [Self.stepType, Self.heartRateType], read: [])
+            }
 
             let allowed = records.filter { store.authorizationStatus(for: Self.type(for: $0.kind)) == .sharingAuthorized }
             guard !allowed.isEmpty else {
                 status = .failed("Buckle Link isn't allowed to save to Health. Turn it on in Health > Profile > Apps > Buckle Link.")
-                return
+                return false
             }
 
             status = .saving
@@ -61,8 +77,10 @@ final class HealthSync {
             status = .done(steps: allowed.filter { $0.kind == .steps }.count,
                            heartRates: allowed.filter { $0.kind == .heartRate }.count,
                            notAllowed: records.count - allowed.count)
+            return true
         } catch {
             status = .failed("Couldn't save to Health. \(error.localizedDescription)")
+            return false
         }
     }
 

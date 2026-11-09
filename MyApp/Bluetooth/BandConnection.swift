@@ -51,6 +51,9 @@ final class BandConnection: NSObject {
         let badCRCCount: Int
         /// False if the sync ended because the band went quiet rather than sending "finish".
         let receivedFinish: Bool
+        /// True for the automatic sync on the band's tick, which only asks for the newest data,
+        /// so its summary doesn't cover the whole day.
+        var automatic = false
     }
 
     enum ActivityStatus: Equatable {
@@ -100,6 +103,11 @@ final class BandConnection: NSObject {
     @ObservationIgnored private var assembler: ActivityStreamAssembler?
     @ObservationIgnored private var activityStartedAt = Date()
     @ObservationIgnored private var activityTimeout: Task<Void, Never>?
+    /// Where the current activity sync starts from (nil means the last 24 hours).
+    @ObservationIgnored private var activitySince: Date?
+    @ObservationIgnored private var activityAutomatic = false
+    /// For `syncActivityAndWait`: resumed when the activity sync ends.
+    @ObservationIgnored private var activityWaiter: CheckedContinuation<ActivityStatus, Never>?
     /// The band iOS handed back when it relaunched the app (state restoration), until Bluetooth is ready.
     @ObservationIgnored private var restoredBand: CBPeripheral?
 
@@ -203,12 +211,12 @@ final class BandConnection: NSObject {
 
     // MARK: - Activity sync (spec section 7)
 
-    /// Gets the last 24 hours of steps and heart rate from the band.
+    /// Gets steps and heart rate from the band: the last 24 hours, or since `since` if given.
     ///
     /// Steps: subscribe to 3002 (so the band can stream to us), send requests A and B and start,
     /// collect the stream, then unsubscribe. Subscribing is the one write that doesn't go through
     /// `send`, because it's a standard Bluetooth switch rather than a Wena packet.
-    func syncActivity() {
+    func syncActivity(since: Date? = nil, automatic: Bool = false) {
         guard !isSending, !activity.inProgress else { return }
         guard state == .connected,
               let band = peripheral,
@@ -219,19 +227,35 @@ final class BandConnection: NSObject {
         assembler = ActivityStreamAssembler()
         rawActivityPackets = []
         activityStartedAt = Date()
+        activitySince = since
+        activityAutomatic = automatic
         activity = .subscribing
         band.setNotifyValue(true, for: stream)
         // Continues in peripheral(_:didUpdateNotificationStateFor:error:).
         restartActivityTimeout()
     }
 
+    /// `syncActivity`, for automatic syncs: waits until it ends and returns how it ended.
+    /// The caller checks first that nothing else is sending or syncing.
+    func syncActivityAndWait(since: Date) async -> ActivityStatus {
+        await withCheckedContinuation { continuation in
+            activityWaiter = continuation
+            syncActivity(since: since, automatic: true)
+            // If it couldn't start, it has already ended.
+            if !activity.inProgress {
+                activityWaiter = nil
+                continuation.resume(returning: activity)
+            }
+        }
+    }
+
     /// Called once the band has confirmed the subscription: send the request packets.
     private func requestActivity() {
         let now = WenaPackets.wenaTimestamp(for: activityStartedAt)
-        let dayAgo = WenaPackets.wenaTimestamp(for: activityStartedAt.addingTimeInterval(-24 * 60 * 60))
+        let from = WenaPackets.wenaTimestamp(for: activitySince ?? activityStartedAt.addingTimeInterval(-24 * 60 * 60))
         let packets = [
-            // Steps and heart rate from 24 hours ago. Everything else "newer than now", which is nothing.
-            WenaPackets.activityRequestA(steps: dayAgo, heartRate: dayAgo, behaviour: now, vo2: now),
+            // Steps and heart rate since `from`. Everything else "newer than now", which is nothing.
+            WenaPackets.activityRequestA(steps: from, heartRate: from, behaviour: now, vo2: now),
             WenaPackets.activityRequestB(stress: now, bodyEnergy: now, calories: now, events: now),
             WenaPackets.activityStart,
         ]
@@ -281,7 +305,8 @@ final class BandConnection: NSObject {
                            syncedAt: activityStartedAt,
                            packetCount: assembler.packetCount,
                            badCRCCount: assembler.badCRCCount,
-                           receivedFinish: receivedFinish)
+                           receivedFinish: receivedFinish,
+                           automatic: activityAutomatic)
     }
 
     /// Ends the activity sync and switches the band's "send me updates" setting back off.
@@ -295,6 +320,8 @@ final class BandConnection: NSObject {
             band.setNotifyValue(false, for: stream)
         }
         activity = status
+        activityWaiter?.resume(returning: status)
+        activityWaiter = nil
     }
 
     // MARK: - Writing (the only code that writes to the band)

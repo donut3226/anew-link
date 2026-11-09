@@ -9,6 +9,7 @@ final class AppServices {
     let connection = BandConnection()
     let weatherSync = WeatherSync()
     let autoSync = AutoSync()
+    let activityAutoSync = ActivityAutoSync()
     let healthSync = HealthSync()
     let nowPlaying = NowPlayingSync()
 
@@ -16,10 +17,12 @@ final class AppServices {
     func start() {
         nowPlaying.attach(to: connection)
 
-        // The band's requests (spec section 6). Only these two are answered.
+        // The band's requests (spec section 6). Only these three are answered.
         connection.onBandRequest = { [weak self] request in
             guard let self else { return }
             switch request.type {
+            case 0:  // Sync tick, every 30 minutes
+                Task { await self.activityAutoSync.answerSyncTick(connection: self.connection, health: self.healthSync) }
             case 3:  // Get weather
                 Task { await self.autoSync.answerWeatherRequest(connection: self.connection, weather: self.weatherSync) }
             case 11: // Music info

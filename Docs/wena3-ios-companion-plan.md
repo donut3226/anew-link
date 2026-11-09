@@ -163,7 +163,7 @@ You still need **Xcode** for the simulator, signing and running on the iPhone. C
 
 ## 14. Status and next steps (9 Nov 2026)
 
-App: **Anew Link** (formerly Buckle Link), repo `donut3226/buckle-link` (private, MIT). Runs on the owner's iPhone 17 Pro from Xcode with a free Personal Team. Details of every hardware result are in spec section 13.
+App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, MIT). Runs on the owner's iPhone 17 Pro from Xcode with a free Personal Team. Details of every hardware result are in spec section 13.
 
 **Working on the real band:**
 - Read firmware (2.40JP), serial and battery

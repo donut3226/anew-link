@@ -1,3 +1,4 @@
+import AudioToolbox
 import AVFoundation
 import Foundation
 import Observation
@@ -6,8 +7,9 @@ import UserNotifications
 
 /// Rings the phone when the band asks for it (request type 2, "Locate phone").
 ///
-/// - App on screen: plays `FindPhone.wav` on a loop, even with the silent switch on, until
-///   "Found it" is tapped or 30 seconds pass.
+/// - App on screen: plays `FindPhone.wav` on a loop and vibrates, until "Found it" is tapped
+///   or 30 seconds pass. The sound ignores the silent switch but follows the media volume
+///   (the volume buttons), so at volume zero only the vibration is felt.
 /// - App in the background or phone locked: shows a notification with the same chime.
 ///   iOS mutes notification sounds when the silent switch is on; only apps Apple approves
 ///   for "critical alerts" can get around that.
@@ -28,6 +30,7 @@ final class FindPhone {
 
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var stopTask: Task<Void, Never>?
+    @ObservationIgnored private var vibrateTask: Task<Void, Never>?
 
     var isEnabled: Bool {
         UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? false
@@ -55,6 +58,8 @@ final class FindPhone {
     func stop() {
         stopTask?.cancel()
         stopTask = nil
+        vibrateTask?.cancel()
+        vibrateTask = nil
         player?.stop()
         player = nil
         isRinging = false
@@ -80,6 +85,13 @@ final class FindPhone {
             return false
         }
         isRinging = true
+        // Vibrate every 1.5 seconds as well: vibration works in silent mode and at any volume.
+        vibrateTask = Task {
+            while !Task.isCancelled {
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate)
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+        }
         stopTask = Task { [weak self] in
             try? await Task.sleep(for: Self.maxRinging)
             guard !Task.isCancelled else { return }

@@ -198,7 +198,7 @@ struct BandStatusContent: View {
                     } header: {
                         Text("Find my phone")
                     } footer: {
-                        Text("With the app open, it rings even in silent mode. Otherwise it shows a notification, which is silent if your phone is on silent.")
+                        Text("With the app open, it rings at your media volume and vibrates, even in silent mode. Otherwise it shows a notification, which follows your ringer and silent mode.")
                     }
 
                     Section {

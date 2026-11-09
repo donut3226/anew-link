@@ -257,6 +257,7 @@ Tested with our app (then called Buckle Link, now Anew Link) (commit `2c67349`, 
   - **The band also sends get calendar and get weather straight after (almost) every reconnect** (06:11, 07:11, 07:15, 07:25 on 9 Nov).
   - **Gap without state restoration:** from 08:12 to 13:47 on 9 Nov the app stayed "Reconnecting" although the band was in range (notifications and calls reached it over iOS's own link). iOS had most likely closed the app, ending its pending connect. State restoration was added next to fix this.
   - **State restoration confirmed, 9 Nov 2026 (commits `ca6f74a`, `7cffd77`):** after the app was stopped from Xcode, iOS relaunched it in the background when the band went out of range (14:10:49 and 14:36:11, "Restored by iOS in the background" logged with the disconnect), and it reconnected with no screen shown (14:11:00).
+  - **Find my phone (type 2):** the app answers by ringing the phone (sound with the app open, notification otherwise). It sends nothing back to the band. Result on the band: pending.
   - **Failed connect attempts at the edge of range:** iOS can report "Failed to encrypt the connection" for a pending reconnect. The app used to give up there, which likely caused the 08:12-13:47 gap. Since commit `6f8edc7` it retries after 2 s: confirmed at 15:52:06, reconnected 39 s later and answered the weather request.
 
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).

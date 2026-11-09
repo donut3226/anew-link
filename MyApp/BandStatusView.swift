@@ -14,6 +14,9 @@ struct BandStatusView: View {
     private var healthSync: HealthSync { services.healthSync }
     private var nowPlaying: NowPlayingSync { services.nowPlaying }
     private var activityAutoSync: ActivityAutoSync { services.activityAutoSync }
+    private var findPhone: FindPhone { services.findPhone }
+    /// The "Ring when the band looks for this phone" switch.
+    @AppStorage(FindPhone.enabledKey) private var findPhoneEnabled = false
     /// The "Save activity to Apple Health automatically" switch.
     @AppStorage(ActivityAutoSync.enabledKey) private var autoSaveActivity = true
     /// The "update automatically" switch, saved in the iPhone's settings store.
@@ -59,8 +62,17 @@ struct BandStatusView: View {
             showSongTitle: $showSongTitle,
             music: nowPlaying.status,
             musicPermissionDenied: nowPlaying.permissionDenied,
-            onSendTestMusic: { Task { await nowPlaying.sendTest() } }
+            onSendTestMusic: { Task { await nowPlaying.sendTest() } },
+            findPhoneEnabled: $findPhoneEnabled,
+            findPhoneRinging: findPhone.isRinging,
+            findPhoneLastRequest: findPhone.lastRequest,
+            findPhonePermissionDenied: findPhone.permissionDenied,
+            onStopRinging: { findPhone.stop() },
+            onTestFindPhone: { Task { _ = await findPhone.bandAsked() } }
         )
+        .onChange(of: findPhoneEnabled) {
+            Task { await findPhone.enabledChanged() }
+        }
         .onChange(of: showSongTitle) {
             Task { await nowPlaying.enabledChanged() }
         }
@@ -121,6 +133,12 @@ struct BandStatusContent: View {
     var music: NowPlayingSync.Status = .idle
     var musicPermissionDenied = false
     var onSendTestMusic: () -> Void = {}
+    var findPhoneEnabled: Binding<Bool> = .constant(false)
+    var findPhoneRinging = false
+    var findPhoneLastRequest: Date?
+    var findPhonePermissionDenied = false
+    var onStopRinging: () -> Void = {}
+    var onTestFindPhone: () -> Void = {}
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -165,6 +183,25 @@ struct BandStatusContent: View {
                     }
 
                     Section {
+                        Toggle("Ring when the band looks for this phone", isOn: findPhoneEnabled)
+                        if findPhoneRinging {
+                            Button("Found it", action: onStopRinging)
+                                .font(.headline)
+                        }
+                        if findPhonePermissionDenied {
+                            Label("Notifications are off. Turn them on in Settings > Notifications > Anew Link.",
+                                  systemImage: "hand.raised")
+                                .foregroundStyle(.orange)
+                        } else if let findPhoneLastRequest {
+                            LabeledContent("Band last asked", value: Self.clock(findPhoneLastRequest))
+                        }
+                    } header: {
+                        Text("Find my phone")
+                    } footer: {
+                        Text("With the app open, it rings even in silent mode. Otherwise it shows a notification, which is silent if your phone is on silent.")
+                    }
+
+                    Section {
                         Button("Send weather", action: onSendWeather)
                             .disabled(isBusy)
                         weatherRow
@@ -204,6 +241,7 @@ struct BandStatusContent: View {
                             .disabled(isBusy)
                         Button("Test: send music text", action: onSendTestMusic)
                             .disabled(isBusy)
+                        Button("Test: find my phone", action: onTestFindPhone)
                         if !rawActivityHex.isEmpty {
                             ShareLink("Share raw activity packets", item: rawActivityHex)
                         }

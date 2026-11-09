@@ -1,4 +1,13 @@
-# App icon: "renew buckle"
+# App icon
+
+**Chosen (9 Nov 2026): concept 7 "Sunrise clasp"** for the normal icon, and **concept 9 "Night clasp"** for the dark home-screen style. Both are original artwork, no Sony or Wena marks. Explored on the Claude Design canvas "Anew Link icon".
+
+- `concepts/`: all nine concept SVGs (1024 x 1024). 7 and 9 are the sources of the app icon.
+- The app's icon set is `MyApp/Assets.xcassets/AppIcon.appiconset`: `AppIcon.png` (7), `AppIcon-Dark.png` (9), `AppIcon-Tinted.png` (9 in grey, which iOS colours in Tinted mode). The PNGs were rendered from the SVGs with Quick Look (WebKit) and flattened to 1024 x 1024 with no transparency, as Apple requires.
+- To change the icon: edit the SVG, render it again, and replace the PNGs.
+
+## Earlier attempt: "renew buckle" (not used)
+
 
 A strap through a buckle whose frame is drawn as a loop arrow: the band's buckle, given a new life ("Anew"). Original artwork, no Sony or Wena marks.
 

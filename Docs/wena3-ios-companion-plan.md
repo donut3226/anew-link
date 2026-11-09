@@ -173,15 +173,15 @@ App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, 
 - Song title from Apple Music on the band's music screen, answered in the background (type 11), including with the phone locked
 - Background connection: listening for band requests on 4002 (saved debug log), auto-reconnect including retry after a failed attempt at the edge of range, Bluetooth state restoration (iOS relaunches the app in the background, confirmed)
 - No app needed: notifications (ANCS), media buttons, volume, camera shutter
+- Name **Anew Link** and app icon "Sunrise clasp", with "Night clasp" for dark home screens and a tinted version (`Design/AppIcon/`)
 
 **Test backlog (built, not yet confirmed on the band):**
 - **Automatic activity save on the 30-minute sync tick** (commit `e15e5c4`): wear or carry the band, lock the phone for an hour or two, then check the log for "Saved activity to Health" about every 30 minutes and look for band entries in Health > Steps > Show All Data. Unproven: Health writes with the phone locked (Apple documents that they're held until unlock). Watch for "Weather request not answered: busy" right after a tick.
 - **Heart rate**: built, untested until the band is worn. Options: Apple Watch lug adapters, a cheap watch head, or the Omega once a good strap fit is found.
 
 **Next steps, in order:**
-1. **App icon** (original artwork, no Sony or Wena marks). Name chosen: Anew Link.
-2. Remaining spec extraction (calendar, alarms, display and other settings), then calendar sync. The band asks for the calendar hourly (type 1).
-3. Phase 4 polish: demo mode for App Review, privacy policy (Health, location, Apple Music), TestFlight.
+1. Remaining spec extraction (calendar, alarms, display and other settings), then calendar sync. The band asks for the calendar hourly (type 1).
+2. Phase 4 polish: demo mode for App Review, privacy policy (Health, location, Apple Music), TestFlight.
 
 iOS background refresh as a backup was dropped: the band's own 30-minute tick and 4-hourly weather request already wake the app.
 

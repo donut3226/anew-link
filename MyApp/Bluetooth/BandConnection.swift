@@ -113,6 +113,7 @@ final class BandConnection: NSObject {
 
     /// Our name for iOS's state restoration. iOS uses it to give a relaunched app back its
     /// Bluetooth connections. It must never change, or iOS forgets what we were waiting for.
+    /// (It keeps the app's old name, Buckle Link, on purpose. Users never see it.)
     private static let restoreIdentifier = "BuckleLinkBandCentral"
 
     private static let scanDuration: Duration = .seconds(15)

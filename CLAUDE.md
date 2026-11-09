@@ -37,7 +37,7 @@ The owner is a first-time iOS developer: **explain Swift/SwiftUI/iOS concepts as
 
 ## Build and run
 
-Xcode 27.2. Single project `WenaCompanion.xcodeproj`, app target `MyApp` (display name "Buckle Link"; the project and folder keep their old "Wena Companion" names, which users never see) and unit-test target `MyAppTests` (Swift Testing, hosted in the app), both in the shared scheme `MyApp` (`xcshareddata/xcschemes/MyApp.xcscheme`).
+Xcode 27.2. Single project `WenaCompanion.xcodeproj`, app target `MyApp` (display name "Anew Link", formerly "Buckle Link"; the project and folder keep their old "Wena Companion" names, and the Bluetooth restore identifier keeps "BuckleLinkBandCentral", none of which users see) and unit-test target `MyAppTests` (Swift Testing, hosted in the app), both in the shared scheme `MyApp` (`xcshareddata/xcschemes/MyApp.xcscheme`).
 
 ```bash
 xcodebuild -project WenaCompanion.xcodeproj -scheme MyApp -destination 'generic/platform=iOS Simulator' build

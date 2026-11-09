@@ -64,7 +64,7 @@ final class NowPlayingSync {
     /// Debug only: sends a fixed text, to check how the band shows it.
     func sendTest() async {
         #if DEBUG
-        await deliver("Buckle Link test / Music")
+        await deliver("Anew Link test / Music")
         #endif
     }
 

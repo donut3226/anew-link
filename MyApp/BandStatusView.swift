@@ -227,7 +227,7 @@ struct BandStatusContent: View {
                     }
                 }
             }
-            .navigationTitle("Buckle Link")
+            .navigationTitle("Anew Link")
         }
     }
 
@@ -395,7 +395,7 @@ struct BandStatusContent: View {
     @ViewBuilder
     private var musicRow: some View {
         if musicPermissionDenied {
-            Label("Apple Music access is off. Turn it on in Settings > Privacy & Security > Media & Apple Music > Buckle Link.",
+            Label("Apple Music access is off. Turn it on in Settings > Privacy & Security > Media & Apple Music > Anew Link.",
                   systemImage: "hand.raised")
                 .foregroundStyle(.orange)
         } else {
@@ -430,7 +430,7 @@ struct BandStatusContent: View {
                       systemImage: "heart.circle.fill")
                     .foregroundStyle(.green)
                 if notAllowed > 0 {
-                    Text("\(notAllowed) not saved: that type isn't allowed in Health > Profile > Apps > Buckle Link.")
+                    Text("\(notAllowed) not saved: that type isn't allowed in Health > Profile > Apps > Anew Link.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

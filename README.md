@@ -1,8 +1,8 @@
-# Buckle Link
+# Anew Link
 
 An unofficial, free and open-source iOS companion app for the Sony Wena 3 smartwatch band.
 
-Sony ended Wena 3 support and services on 28 February 2026, so its official app can no longer set up or update the band. Buckle Link aims to keep already-set-up bands useful on iPhone. It is a non-profit hobby project with no ads.
+Sony ended Wena 3 support and services on 28 February 2026, so its official app can no longer set up or update the band. Anew Link aims to keep already-set-up bands useful on iPhone. It is a non-profit hobby project with no ads.
 
 > **Not affiliated with, endorsed by or connected to Sony.** "Sony" and "Wena" are trademarks of their respective owners and are used here only to describe which device this app works with.
 

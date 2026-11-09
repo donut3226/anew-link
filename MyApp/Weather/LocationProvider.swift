@@ -12,7 +12,7 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
 
         var errorDescription: String? {
             switch self {
-            case .denied: "Location permission is off. Turn it on in Settings > Privacy & Security > Location Services > Buckle Link."
+            case .denied: "Location permission is off. Turn it on in Settings > Privacy & Security > Location Services > Anew Link."
             case .failed: "Couldn't find your location. Try again in a moment."
             }
         }

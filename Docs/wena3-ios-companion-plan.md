@@ -59,7 +59,7 @@ On iOS, apps cannot read other apps' notifications. Accessories use **ANCS**: th
 |---|---|
 | Platform | iOS, Swift + SwiftUI, CoreBluetooth |
 | Distribution | Free, no ads, non-profit, open source on GitHub, App Store |
-| Naming | Avoid "Sony" and "Wena" as headline brand. Ideas: OpenBand, Buckle Link; "companion for Wena 3" only as a subtitle |
+| Naming | Avoid "Sony" and "Wena" as headline brand. Chosen 9 Nov 2026: **Anew Link** ("Wena" backwards; "anew" = a new life for the band), formerly Buckle Link. "companion for Wena 3" only as a subtitle |
 | Positioning | "Unofficial, open-source companion app for a discontinued device" |
 | Assets | No Sony logos or imagery |
 | Approach | Minimal first (connect, read info, set time), then one feature at a time |
@@ -163,7 +163,7 @@ You still need **Xcode** for the simulator, signing and running on the iPhone. C
 
 ## 14. Status and next steps (9 Nov 2026)
 
-App: **Buckle Link** (working name, a better one is wanted), repo `donut3226/buckle-link` (private, MIT). Runs on the owner's iPhone 17 Pro from Xcode with a free Personal Team. Details of every hardware result are in spec section 13.
+App: **Anew Link** (formerly Buckle Link), repo `donut3226/buckle-link` (private, MIT). Runs on the owner's iPhone 17 Pro from Xcode with a free Personal Team. Details of every hardware result are in spec section 13.
 
 **Working on the real band:**
 - Read firmware (2.40JP), serial and battery
@@ -179,7 +179,7 @@ App: **Buckle Link** (working name, a better one is wanted), repo `donut3226/buc
 - **Heart rate**: built, untested until the band is worn. Options: Apple Watch lug adapters, a cheap watch head, or the Omega once a good strap fit is found.
 
 **Next steps, in order:**
-1. **App name** and **app icon** (original artwork, no Sony or Wena marks).
+1. **App icon** (original artwork, no Sony or Wena marks). Name chosen: Anew Link.
 2. Remaining spec extraction (calendar, alarms, display and other settings), then calendar sync. The band asks for the calendar hourly (type 1).
 3. Phase 4 polish: demo mode for App Review, privacy policy (Health, location, Apple Music), TestFlight.
 

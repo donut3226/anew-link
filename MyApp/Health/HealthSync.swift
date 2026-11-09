@@ -64,7 +64,7 @@ final class HealthSync {
 
             let allowed = records.filter { store.authorizationStatus(for: Self.type(for: $0.kind)) == .sharingAuthorized }
             guard !allowed.isEmpty else {
-                status = .failed("Buckle Link isn't allowed to save to Health. Turn it on in Health > Profile > Apps > Buckle Link.")
+                status = .failed("Anew Link isn't allowed to save to Health. Turn it on in Health > Profile > Apps > Anew Link.")
                 return false
             }
 

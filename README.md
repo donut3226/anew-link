@@ -28,7 +28,7 @@ Notifications, calls and the band's music controls already work through iOS with
 
 Not possible: Suica, iD, QUICPay, Alexa, Riiiver and Qrio, which relied on Sony's or other companies' servers. Firmware updates are out of scope. MAMORIO runs through its own app.
 
-Privacy: no accounts, no analytics, nothing sent to us. See [`Docs/privacy-policy.md`](Docs/privacy-policy.md).
+Privacy: no accounts, no analytics, nothing sent to us. See the [privacy policy](https://donut3226.github.io/anew-link/Docs/privacy-policy.html).
 
 ## A word of caution
 

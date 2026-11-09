@@ -1,6 +1,6 @@
 # Wena 3 iOS Companion App - Plan
 
-Last updated: 8 November 2026 (status and next steps added in section 14)
+Last updated: 9 November 2026 (status, test backlog and next steps in section 14)
 
 Companion document: `claude/wena3-protocol-spec.md` (the BLE protocol facts extracted from Gadgetbridge). Read it alongside this plan.
 

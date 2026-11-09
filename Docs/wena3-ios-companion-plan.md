@@ -185,6 +185,27 @@ App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, 
 
 **Release (9 Nov 2026):** paid Apple Developer Program, bundle ID `com.donut32.anew-link` (team WVWWUXQ867), privacy policy live on GitHub Pages, repo public, build 1.0 (1) on TestFlight and installed on the owner's iPhone. New builds: `Scripts/upload-testflight.sh`.
 
+**Next big topic: pairing a band that lost its bond (assessed 9 Nov 2026, nothing built yet)**
+
+Why it matters: owners who got a new iPhone, tapped "Forget This Device", reset network settings, or factory-reset the band can't use Sony's app to pair again. This is likely the most valuable feature for other owners. The owner's own band is still bonded, so the app has never needed it.
+
+What we know:
+- The protocol has no login, challenge or key exchange (spec section 2). Pairing is ordinary OS-level Bluetooth bonding, then plain packets.
+- On iOS an app can't pair directly: it connects, and iOS shows its own "Bluetooth Pairing Request" when the app touches an encrypted characteristic. After bonding, the band asks iOS for notifications (ANCS) itself.
+- Gadgetbridge pairs Wena 3 on Android without Sony's app, which suggests the band accepts a new phone. Its author reported buggy band-side pairing: after deleting the bond in the band menu, the band spammed pairing requests until rebooted.
+
+What we don't know:
+- How the band enters pairing mode (menu, after reset, or by itself when its old phone is gone).
+- What a factory-reset band needs before it's usable: possibly a first-time settings sequence (spec section 2), maybe including the `0x12` calendar and notification toggles packet we avoid on bonded bands.
+- Whether a band still bonded to an old phone accepts a new one without a reset.
+
+Safety: never test on the owner's band (CLAUDE.md: no unpair or reset). Test with owners who are already stuck (nothing to lose) via an external TestFlight group with a public link (needs Apple's beta review; demo mode and review notes are ready), or a cheap second-hand Wena 3.
+
+Plan for the next session:
+1. Research Gadgetbridge's pairing flow and owner reports of pairing without Sony's app; record findings in the spec.
+2. Design a "Pair a band" flow: scan for the band in pairing mode, connect to trigger iOS pairing, then first-time setup using only verified packets, with clear on-screen instructions.
+3. Open external TestFlight and invite stuck owners to test it.
+
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
 2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.

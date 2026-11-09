@@ -43,6 +43,12 @@ Xcode 27.2. Single project `WenaCompanion.xcodeproj`, app target `MyApp` (displa
 xcodebuild -project WenaCompanion.xcodeproj -scheme MyApp -destination 'generic/platform=iOS Simulator' build
 ```
 
+Upload a new TestFlight build (archives Release, build number = git commit count, signs with paid team WVWWUXQ867, bundle ID `com.donut32.anew-link`):
+
+```bash
+Scripts/upload-testflight.sh
+```
+
 Run all tests (an "iPhone 17" simulator exists on this Mac):
 
 ```bash

@@ -52,3 +52,29 @@ struct AutoSyncTests {
                                       currentOffset: summerOffset, calendar: adelaide))
     }
 }
+
+/// Checks when the band's own weather requests are answered.
+struct WeatherRequestTests {
+
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+    private let offset = 39_600   // +11:00
+
+    @Test func answeredWhenNeverSent() {
+        #expect(WeatherSchedule.shouldAnswerRequest(lastSent: nil, lastOffset: nil, now: now, currentOffset: offset))
+    }
+
+    @Test func skippedWithinTwoHours() {
+        #expect(!WeatherSchedule.shouldAnswerRequest(lastSent: now.addingTimeInterval(-90 * 60), lastOffset: offset,
+                                                     now: now, currentOffset: offset))
+    }
+
+    @Test func answeredAfterTwoHours() {
+        #expect(WeatherSchedule.shouldAnswerRequest(lastSent: now.addingTimeInterval(-2 * 3600), lastOffset: offset,
+                                                    now: now, currentOffset: offset))
+    }
+
+    @Test func answeredStraightAwayAfterTimeZoneChange() {
+        #expect(WeatherSchedule.shouldAnswerRequest(lastSent: now.addingTimeInterval(-10 * 60), lastOffset: offset,
+                                                    now: now, currentOffset: 28_800))
+    }
+}

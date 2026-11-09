@@ -17,10 +17,20 @@ nonisolated enum ActivityWindow {
         guard let lastSaved else { return earliest }
         return max(lastSaved.addingTimeInterval(-overlap), earliest)
     }
+
+    /// An automatic sync runs when the app opens, at most this often.
+    static let minGap: TimeInterval = 30 * 60
+
+    /// Whether opening the app should sync: never saved, or the last save is at least `minGap` old.
+    static func isDue(lastSaved: Date?, now: Date) -> Bool {
+        guard let lastSaved else { return true }
+        return now.timeIntervalSince(lastSaved) >= minGap
+    }
 }
 
-/// Syncs activity and saves it to Apple Health when the band sends its sync tick
-/// (request type 0, every 30 minutes), also with the phone locked.
+/// Syncs activity and saves it to Apple Health when the app opens (on demand), if the last
+/// save is at least 30 minutes old. Not on the band's 30-minute sync tick: streaming activity
+/// that often drained the band's battery noticeably.
 ///
 /// Only runs while its switch is on and after Health has been allowed once (with the
 /// Save to Apple Health button), so it never shows a popup. If a save fails, the next tick
@@ -55,8 +65,13 @@ final class ActivityAutoSync {
         lastSave = syncedAt
     }
 
-    /// The band sent its sync tick. The result goes in the band log.
-    func answerSyncTick(connection: BandConnection, health: HealthSync) async {
+    /// The app came on screen or connected. The result goes in the band log.
+    func runIfDue(connection: BandConnection, health: HealthSync) async {
+        // Only with the app on screen (a reconnect in the background doesn't count),
+        // and only when the band is there to ask.
+        guard UIApplication.shared.applicationState == .active,
+              connection.state == .connected,
+              ActivityWindow.isDue(lastSaved: lastSave, now: Date()) else { return }
         guard let outcome = await run(connection: connection, health: health) else { return }
         connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
     }

@@ -123,6 +123,8 @@ struct BandStatusView: View {
             // A short pause so the band's weather characteristic is found before we use it.
             try? await Task.sleep(for: .seconds(1))
             await autoSync.runIfDue(connection: connection, weather: weatherSync)
+            // Then activity, on demand (each checks its own switch and timing).
+            await activityAutoSync.runIfDue(connection: connection, health: healthSync)
         }
     }
 
@@ -220,7 +222,7 @@ struct BandStatusContent: View {
                     } header: {
                         Text("Automatic updates")
                     } footer: {
-                        Text("When the app opens, sends the time and weather if the forecast is from yesterday, over 3 hours old, or you've changed time zone.")
+                        Text("Sends the time and weather when the band asks (at most every 2 hours) and when the app opens if the forecast is over 3 hours old, from yesterday, or you've changed time zone.")
                     }
 
                     Section("Time") {
@@ -280,7 +282,7 @@ struct BandStatusContent: View {
                         Button("Sync activity (last 24 h)", action: onSyncActivity)
                             .disabled(isBusy || info?.supportsActivitySync == false)
                         activityRows
-                        Toggle("Save to Apple Health automatically", isOn: autoSaveActivity)
+                        Toggle("Save to Apple Health when the app opens", isOn: autoSaveActivity)
                         LabeledContent("Last saved",
                                        value: lastActivitySave.map { Self.dayAndTime($0) } ?? "Not yet")
                     } header: {
@@ -292,7 +294,7 @@ struct BandStatusContent: View {
                         case nil:
                             Text("Couldn't read the firmware version. Activity sync needs 2.40 or later.")
                         case true?:
-                            Text("Steps and heart rate, read from the band. Automatic saving runs about every 30 minutes, after you've tapped Save to Apple Health once to allow it.")
+                            Text("Steps and heart rate, read from the band. Saved automatically when you open the app (at most every 30 minutes), after you've tapped Save to Apple Health once to allow it.")
                         }
                     }
 

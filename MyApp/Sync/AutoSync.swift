@@ -6,8 +6,19 @@ import UIKit
 /// Pure, so the rule can be unit-tested.
 nonisolated enum WeatherSchedule {
 
-    /// How old the last update can be before it's refreshed.
+    /// How old the last update can be before it's refreshed when the app opens.
     static let maxAge: TimeInterval = 3 * 60 * 60
+    /// The band asks for weather about every 4 hours and after every reconnect. To save the
+    /// band's battery, those requests are only answered when the last update is this old.
+    static let minRequestGap: TimeInterval = 2 * 60 * 60
+
+    /// Whether to answer the band's own weather request: never sent, time zone changed
+    /// (travel: always worth it), or the last update is at least `minRequestGap` old.
+    static func shouldAnswerRequest(lastSent: Date?, lastOffset: Int?, now: Date, currentOffset: Int) -> Bool {
+        guard let lastSent, let lastOffset else { return true }
+        if lastOffset != currentOffset { return true }
+        return now.timeIntervalSince(lastSent) >= minRequestGap
+    }
 
     /// - Parameters:
     ///   - lastSent: when the last successful automatic update happened (nil if never).
@@ -23,7 +34,8 @@ nonisolated enum WeatherSchedule {
 }
 
 /// Sends time and weather by itself, only if the user's switch is on: when the band asks
-/// for weather, and as a backup when the app connects or comes on screen and an update is due.
+/// for weather (at most every 2 hours), and when the app connects or comes on screen and an
+/// update is due.
 @Observable
 final class AutoSync {
 
@@ -62,6 +74,17 @@ final class AutoSync {
     /// phone locked). The band asking is reason enough, so the schedule isn't checked.
     /// The result goes in the band log, so an overnight log shows whether each request was answered.
     func answerWeatherRequest(connection: BandConnection, weather: WeatherSync) async {
+        let now = Date()
+        let lastSent = defaults.object(forKey: Self.lastSentKey) as? Date
+        guard WeatherSchedule.shouldAnswerRequest(lastSent: lastSent,
+                                                  lastOffset: defaults.object(forKey: Self.lastOffsetKey) as? Int,
+                                                  now: now,
+                                                  currentOffset: TimeZone.current.secondsFromGMT(for: now)) else {
+            let minutes = Int(now.timeIntervalSince(lastSent ?? now) / 60)
+            connection.events.add(BandEvent(date: now, kind: .info,
+                                            detail: "Weather request skipped: updated \(minutes) min ago"))
+            return
+        }
         let outcome = await update(connection: connection, weather: weather)
         connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
     }

@@ -176,7 +176,7 @@ App: **Anew Link** (formerly Buckle Link), repo `donut3226/anew-link` (private, 
 - Name **Anew Link** and app icon "Sunrise clasp", with "Night clasp" for dark home screens and a tinted version (`Design/AppIcon/`)
 
 **Test backlog (built, not yet confirmed on the band):**
-- **Automatic activity save on the 30-minute sync tick** (commit `e15e5c4`): wear or carry the band, lock the phone for an hour or two, then check the log for "Saved activity to Health" about every 30 minutes and look for band entries in Health > Steps > Show All Data. Unproven: Health writes with the phone locked (Apple documents that they're held until unlock). Watch for "Weather request not answered: busy" right after a tick.
+- **Battery (9 Nov):** the band dropped from nearly full to 55% on a heavy test day after syncing activity on every 30-minute tick. Activity now syncs only when the app opens (at most every 30 min), and band weather requests are answered at most every 2 hours. Compare battery over the next days. **Automatic activity save on app open**: open the app after carrying the band, check "Saved activity to Health" in the log and band entries in Health.
 - **Calendar all-day events**: entries work on the band (confirmed 9 Nov); check an all-day event shows on the right date, and that the hourly request is answered ("Answered calendar request (N events)" in the log).
 - **Find my phone vibration** with the app open on silent.
 - **Heart rate**: built, untested until the band is worn. Options: Apple Watch lug adapters, a cheap watch head, or the Omega once a good strap fit is found.

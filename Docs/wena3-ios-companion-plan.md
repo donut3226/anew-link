@@ -1,6 +1,6 @@
 # Wena 3 iOS Companion App - Plan
 
-Last updated: 9 November 2026 (status, test backlog and next steps in section 14)
+Last updated: 10 November 2026 (status, pairing design, test backlog and next steps in section 14)
 
 Companion document: `claude/wena3-protocol-spec.md` (the BLE protocol facts extracted from Gadgetbridge). Read it alongside this plan.
 
@@ -151,7 +151,7 @@ You still need **Xcode** for the simulator, signing and running on the iPhone. C
 - (Answered 8 Nov 2026: yes.) Notifications appear on the band with no companion app, confirming ANCS. Notifications need no app code.
 - Does the Gadgetbridge author agree to a licence arrangement, or do we go clean-room only?
 - Does current Codeberg source differ from the mirror the spec was built from (diff against a0948ee)?
-- Can a factory-reset band be set up without Sony's app (needs a second test band to risk)?
+- Can a factory-reset band be set up without Sony's app (needs a second test band to risk)? Research in spec section 14; pairing design in section 14 of this plan.
 - Final app name?
 
 ## 13. Gadgetbridge issues worth knowing
@@ -201,10 +201,40 @@ What we don't know:
 
 Safety: never test on the owner's band (CLAUDE.md: no unpair or reset). Test with owners who are already stuck (nothing to lose) via an external TestFlight group with a public link (needs Apple's beta review; demo mode and review notes are ready), or a cheap second-hand Wena 3.
 
-Plan for the next session:
-1. Research Gadgetbridge's pairing flow and owner reports of pairing without Sony's app; record findings in the spec.
-2. Design a "Pair a band" flow: scan for the band in pairing mode, connect to trigger iOS pairing, then first-time setup using only verified packets, with clear on-screen instructions.
-3. Open external TestFlight and invite stuck owners to test it.
+Research done 10 Nov 2026: spec section 14. Headlines: Sony's own iPhone setup paired in **iOS Settings > Bluetooth > WNW-21A**, not in the app; the band menu has **Delete pairing** (keeps settings) and **Initialise** (factory reset); Sony required one of them to move to a new phone; "re-setup is impossible" after the shutdown is because Sony's app needs a dead login, not a known band limit; Gadgetbridge pairs without Sony's app; no one has reported pairing a reset band to an iPhone since the shutdown.
+
+### Design: "Pair a band" (10 Nov 2026, not built)
+
+Who it's for: an owner whose band is not bonded to this iPhone (new phone, "Forget This Device", band reset). It never runs for a band that `retrieveConnectedPeripherals` already returns.
+
+Entry: when a connect attempt ends in `.notFound`, the status screen offers "Set up a band that isn't paired yet". Also reachable from the app's settings.
+
+Screens (one step per screen, plain words, a picture of the band menu where it helps):
+
+1. **Before you start.** Charge the band. If an old phone still has the band, switch that phone's Bluetooth off (it grabs the band first). Close Sony's app if it's still installed. Explain that Anew Link can't do Suica, Alexa or Qrio setup.
+2. **Clear the old pairing on the band** (skip if the band was just reset). Band: swipe up > settings > **Delete pairing** > OK. Shown as the normal route because the band keeps its settings and activity. **Initialise** is mentioned only as a last resort behind a "Still not working?" link, with a plain warning: it erases the band's settings and activity history, it can't be undone, and nobody has confirmed yet that a reset band works fully without Sony's app. The app never sends any reset or unpair packet itself.
+3. **Clear the old pairing on the iPhone.** Settings > Bluetooth > (i) next to any `WNW-21A` > Forget This Device. A button opens the Settings app.
+4. **Pair in iOS Settings** (the Sony-documented route). Settings > Bluetooth > tap `WNW-21A` under Other Devices > Pair (type the code if the band shows one). When it says Connected, **swipe up to go home, don't tap back**, then come back to Anew Link. While this screen is open the app checks `retrieveConnectedPeripherals` every 2 seconds (read-only, no prompt) and moves on by itself when the band appears.
+   - Fallback button "Pair from the app instead": scan for `WNW-21A`, connect, read 1520. If the band protects that read, iOS shows its own pairing prompt. Unverified, so it's the second choice; if no prompt appears, the screen sends the user back to Settings.
+5. **First-time setup, verified packets only**, sent one at a time through `BandConnection.send` and shown as a checklist: read device info and battery (firmware warning below 2.40), time and time zone (`0x10`, `0x11`), weather (`0x03`, asks location once), calendar entries only if the user switches calendar on, alarms only if the user sets some. Not sent: `0x12`, body properties, display, vibration or any other unverified setting.
+6. **Check it works.**
+   - Notifications: the app posts one local test notification; ask "Did the band buzz?" This tests ANCS end to end with no band write. iOS may ask "Allow WNW-21A to show notifications?" during pairing: tell the user to tap Allow.
+   - Steps: one activity sync; show the step count to compare with the band's own screen.
+   - Media buttons: "Try play/pause on the band's music screen".
+7. **Done, or what failed.** On any failure: a short list of fixes (move closer, restart the band from its settings menu, repeat steps 2-4) and a "Copy setup report" button that copies the `BandEventLog` lines for this attempt (firmware name, which step failed, battery; never the serial) for the tester to send back.
+
+Build notes:
+- Pure state machine (`PairingFlow`, `nonisolated`, unit tested: step order, skip rules, what counts as "found"); the views only render it. The existing scan fallback in `BandConnection.startScan` already finds an advertising band and is reused.
+- Demo mode gets a fake run of the whole flow, for App Store review and screenshots.
+- No new write types, so the CLAUDE.md write rules are unchanged.
+
+Open questions that only stuck owners can answer (put in the tester notes):
+- Does iOS show a plain "Pair" or a code?
+- Does a band that only did "Delete pairing" accept the new iPhone, or is "Initialise" needed?
+- After "Initialise": do notifications reach the band without `0x12`? Does the band send its 4002 requests (weather, calendar, tick) by itself? If notifications fail on a reset band, `0x12` with both toggles on is the candidate fix, tested only with an owner who opts in and has nothing to lose.
+- Does the band spam pairing requests after a reboot (the Gadgetbridge author's bug), and does forgetting it in iOS and pairing once more stop it?
+
+Next: build the flow, then open external TestFlight and invite stuck owners to test it.
 
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.

@@ -308,3 +308,52 @@ Tested with our app (then called Buckle Link, now Anew Link) (commit `2c67349`, 
   - **Failed connect attempts at the edge of range:** iOS can report "Failed to encrypt the connection" for a pending reconnect. The app used to give up there, which likely caused the 08:12-13:47 gap. Since commit `6f8edc7` it retries after 2 s: confirmed at 15:52:06, reconnected 39 s later and answered the weather request.
 
 Still open from section 10: subscribing to 4002 and 3002 to see which requests the band sends by itself (this writes the subscription descriptor, so it is the next step up from pure reads).
+
+## 14. Pairing a band without Sony's app (research, 10 Nov 2026)
+
+Nothing here has been tried by us. The owner's band stays bonded and must not be used to test it (CLAUDE.md). Sources are listed at the end of the section.
+
+### 14.1 How Sony's own setup worked on iPhone (Sony help guide, pages 7, 11-13)
+
+- **Pairing happens in iOS Settings, not in the app.** The guide says to connect the band to the phone in the iPhone's Settings > Bluetooth first (device name `WNW-21A`) and only then open the Sony app. The app's own "pairing" step is described as pairing with the app, done after the OS-level connection already exists.
+- **Leaving Settings the wrong way breaks it:** once Settings shows "Connected", press Home (swipe up) to leave. Going back to the settings list, or closing the Settings app from the app switcher, disconnects the band.
+- After that the Sony app signed in (Sony account or Sign in with Apple), ran a tutorial and wrote "various settings" the user entered. The account sign-in is what died on 28 Feb 2026, which is why Sony and shops say new setup and re-pairing are impossible. That is a limit of Sony's app, not a known limit of the band. Nothing we found says the band itself checks a server or a setup token, and the protocol has no handshake (section 2).
+- A passkey: one search summary mentioned a 6-digit passkey shown on the device, but that came from the start guide of the older wena wrist, not wena 3. The wena 3 guide's pairing page is a picture, so whether iOS shows "Pair" or asks for a code is **UNVERIFIED**. Design for both.
+
+### 14.2 Band menu actions (Sony help guide, page 11-12)
+
+On the band: swipe up from the home screen > settings.
+
+| Item (Japanese label) | What Sony says it does |
+|---|---|
+| Delete pairing (ペアリング削除) | Deletes the band's pairing info. Used to re-pair: delete here, then delete the pairing on the phone, then connect to `WNW-21A` again |
+| Initialise (初期化) | Factory reset. Deletes pairing info and all settings and info about paired devices. Keeps Qrio keys and FeliCa (Suica, e-money). Sony says to use it when moving to a new phone. A 2021 owner report adds that it also erases the stored activity history |
+| Restart (再起動) | Reboots, settings kept |
+| Main power off (主電源OFF, at the bottom of device info) | Full power off; return by holding the button 6 s, "needs a sync with the app" afterwards |
+| Forced reset | Hold the power key 10 s while on: forced restart. Sony then says to connect with the app and "rewrite the settings" |
+
+So "Delete pairing" is the gentle route (the band keeps its settings), and "Initialise" is the heavy one. Sony's own text for both ends with "connect to `WNW-21A` again from the phone".
+
+### 14.3 What Gadgetbridge does
+
+- Its device page marks Wena 3 "No-vendor pair": initial pairing works in Gadgetbridge without Sony's app. "Bonding/pairing works" is the author's status line. Nothing more specific (bonding style, passkey, pairing mode) is documented.
+- Its general pairing advice: unpair the gadget from the phone's Bluetooth and uninstall the vendor app first, then let Gadgetbridge discover and pair it.
+- On every connect it sends the full settings list (section 2), including `0x12`. So a band paired through Gadgetbridge always gets every setting written, which may hide whether a reset band needs any of them.
+- Band-side bugs reported by the author (PR #3311, Sept 2023): after unpairing from the phone and deleting the bond in the band's menu, a band reboot made it spam the phone with pairing requests and Gadgetbridge could not find it. Removing a device in Gadgetbridge does not tell the band to unpair. "Pairing is very buggy on the Wena 3 itself."
+- The media and camera buttons use the band's HID profile, which the OS connects; on Android it sometimes needs reconnecting in system settings after a long time out of range.
+
+### 14.4 Owner reports after the shutdown
+
+- **Sony and a Sony shop (tecstaff, 12 Feb and 3 Mar 2026):** after 28 Feb, new setup and connection settings are impossible from Sony's app, and deleting the Bluetooth pairing may make re-setup impossible. Standalone functions (steps, heart rate, notifications) keep working on a band that was already set up.
+- **Gadgetbridge owner (note.com, 1 Mar 2026, Android):** uninstalled Sony's app but **kept the existing bond**; Gadgetbridge connected by itself and most features work. Sony's customisations were reset to Gadgetbridge's. This does not cover a new phone or a reset band.
+- **Moving phones before the shutdown (2021, Android):** charge the band, switch Bluetooth off on the old phone (otherwise the old phone grabbed the band first), initialise the band, then pair from the new phone. Sony's FAQ said initialising was required to connect to a different phone. Other owners added: turn off Bluetooth on every other phone that knew the band, and forget any old `WNW-21A` entry on the new phone first.
+- **No report found** of anyone pairing a reset or unbonded Wena 3 to an iPhone after the shutdown, or to a new phone with Gadgetbridge after the shutdown. Reddit, X and Kakaku threads could not be searched properly.
+
+### 14.5 What this means for us
+
+- Pairing is plain OS bonding. On iOS the documented route is Settings > Bluetooth > `WNW-21A`. iOS lists it there because the band has an HID profile, and our app then finds it with `retrieveConnectedPeripherals` (section 13). This is the route to build on.
+- An app-started pairing (scan, connect, iOS shows its own pairing prompt) only happens if the band answers a read or write with "insufficient authentication". We don't know which characteristics are protected (our bonded band never prompted), so it is a fallback, **UNVERIFIED**.
+- The band most likely refuses a second phone while it still holds an old bond (Sony required "Delete pairing" or "Initialise" to change phones). Clearing that is a band-menu action the owner does by hand; the app never sends anything for it.
+- Unknown and only testable on a stuck band: whether a reset band shows notifications without the `0x12` toggles packet (its defaults after reset are unknown), whether it asks for weather and calendar by itself, and whether it accepts our verified packets (time, weather, calendar, alarms) straight away.
+
+Sources: Sony wena 3 help guide (https://www.sony.jp/support/smartwatch/helpguide_wena3.pdf), Gadgetbridge Sony page (https://gadgetbridge.org/gadgets/wearables/sony/) and pairing page (https://gadgetbridge.org/basics/pairing/), Gadgetbridge PR #3311 (https://codeberg.org/Freeyourgadget/Gadgetbridge/pulls/3311), tecstaff (https://tecstaff.jp/2026-02-12_wena3.html, https://tecstaff.jp/2026-03-02_wena.html), garmy on note.com (https://note.com/garmy/n/n6e87d564566e), mikan-partners (https://www.mikan-partners.com/archives/4827), wena FAQ (https://wena.jp/supports/faq.html).

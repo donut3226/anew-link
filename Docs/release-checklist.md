@@ -5,7 +5,7 @@ What's left before other Wena 3 owners can install Anew Link. Most of it needs t
 ## 1. Apple Developer Program (owner)
 
 - TestFlight and the App Store need the paid **Apple Developer Program** (99 USD a year, or a fee waiver for some non-profits). The free Personal Team used so far only installs on your own devices, and its builds expire after 7 days.
-- After joining, set the team in Xcode (target MyApp > Signing & Capabilities) and keep the bundle ID `com.donut32.openband`, or choose a final one before the first upload (it can't change after release).
+- After joining, set the team in Xcode (target MyApp > Signing & Capabilities). The bundle ID is `com.donut32.anewlink` (changed from `com.donut32.openband` on 9 Nov 2026, before the first upload; it can never change after that).
 - Check the capabilities carry over: HealthKit, Background Modes (uses Bluetooth LE accessories).
 
 ## 2. App Store Connect listing (owner)
@@ -15,7 +15,7 @@ What's left before other Wena 3 owners can install Anew Link. Most of it needs t
 - **App Privacy ("nutrition label"):** the app collects no data in Apple's sense. The rounded location goes to Open-Meteo only to answer the forecast request and isn't stored by us. Answer "Data Not Collected", and re-check against Apple's current definitions when filling it in.
 - **Category:** Health & Fitness or Utilities. **Price:** free.
 - **Screenshots:** take them in the simulator using **Try the demo** (no band needed).
-- **Export compliance:** the app only uses Apple's standard HTTPS, so it's exempt. Answer "No" to non-exempt encryption, or add `ITSAppUsesNonExemptEncryption = NO` to `Config/Info.plist`.
+- **Export compliance:** the app only uses Apple's standard HTTPS, so it's exempt. `ITSAppUsesNonExemptEncryption = NO` is already in `Config/Info.plist`, so App Store Connect won't ask for each build.
 
 ## 3. Notes for App Review (paste into "App Review Information")
 

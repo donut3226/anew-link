@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Observation
+import UIKit
 
 /// Finds the Wena 3 band, reads its info and battery, sends it time and weather, and syncs activity.
 /// Every packet write goes through `send(_:to:completion:)`: from a button, from answering a band
@@ -469,7 +470,12 @@ extension BandConnection: CBCentralManagerDelegate {
         guard let band = bands.first else { return }
         restoredBand = band
         band.delegate = self
-        events.add(BandEvent(date: Date(), kind: .info, detail: "Relaunched by iOS for the band"))
+        // iOS also restores when you open the app yourself after it was closed, so say which it was.
+        // "Background" means iOS launched the app with no screen showing.
+        let inBackground = UIApplication.shared.applicationState == .background
+        events.add(BandEvent(date: Date(), kind: .info,
+                             detail: inBackground ? "Restored by iOS in the background"
+                                                  : "Restored by iOS (app opened)"))
     }
 
     func centralManager(_ central: CBCentralManager,

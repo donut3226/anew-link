@@ -18,6 +18,8 @@ struct BandStatusView: View {
     private var calendarSync: CalendarSync { services.calendarSync }
     /// The "Show calendar on band" switch.
     @AppStorage(CalendarSync.enabledKey) private var showCalendar = false
+    /// Demo mode (made-up data, no band). Not saved: the app always starts live.
+    @State private var isDemo = false
     /// The "Ring when the band looks for this phone" switch.
     @AppStorage(FindPhone.enabledKey) private var findPhoneEnabled = false
     /// The "Save activity to Apple Health automatically" switch.
@@ -30,6 +32,34 @@ struct BandStatusView: View {
     @AppStorage(NowPlayingSync.enabledKey) private var showSongTitle = false
 
     var body: some View {
+        Group {
+            if isDemo {
+                DemoView(onExit: { isDemo = false })
+            } else {
+                liveContent
+            }
+        }
+        .onChange(of: showCalendar) {
+            Task { await calendarSync.enabledChanged(connection: connection) }
+        }
+        .onChange(of: findPhoneEnabled) {
+            Task { await findPhone.enabledChanged() }
+        }
+        .onChange(of: showSongTitle) {
+            Task { await nowPlaying.enabledChanged() }
+        }
+        // Automatic updates: when the band connects, and when the app comes back on screen.
+        // AutoSync itself checks the switch and whether an update is actually due.
+        .onChange(of: connection.state) { _, newState in
+            if newState == .connected { runAutoSync() }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { runAutoSync() }
+        }
+    }
+
+    /// The real screen, driven by the band connection.
+    private var liveContent: some View {
         BandStatusContent(
             state: connection.state,
             info: connection.info,
@@ -75,25 +105,9 @@ struct BandStatusView: View {
             showCalendar: $showCalendar,
             calendar: calendarSync.status,
             calendarPermissionDenied: calendarSync.permissionDenied,
-            onSendTestCalendar: { Task { await calendarSync.sendTest(using: connection) } }
+            onSendTestCalendar: { Task { await calendarSync.sendTest(using: connection) } },
+            onStartDemo: { isDemo = true }
         )
-        .onChange(of: showCalendar) {
-            Task { await calendarSync.enabledChanged(connection: connection) }
-        }
-        .onChange(of: findPhoneEnabled) {
-            Task { await findPhone.enabledChanged() }
-        }
-        .onChange(of: showSongTitle) {
-            Task { await nowPlaying.enabledChanged() }
-        }
-        // Automatic updates: when the band connects, and when the app comes back on screen.
-        // AutoSync itself checks the switch and whether an update is actually due.
-        .onChange(of: connection.state) { _, newState in
-            if newState == .connected { runAutoSync() }
-        }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active { runAutoSync() }
-        }
     }
 
     private func runAutoSync() {
@@ -153,6 +167,10 @@ struct BandStatusContent: View {
     var calendar: CalendarSync.Status = .idle
     var calendarPermissionDenied = false
     var onSendTestCalendar: () -> Void = {}
+    /// Shown as "Try the demo" when there's no band to talk to (nil hides it).
+    var onStartDemo: (() -> Void)?
+    /// Demo mode only: shows the demo banner with an Exit button.
+    var onExitDemo: (() -> Void)?
 
     // Hidden by default so the serial doesn't end up in screenshots.
     @State private var showSerial = false
@@ -160,8 +178,24 @@ struct BandStatusContent: View {
     var body: some View {
         NavigationStack {
             List {
+                if let onExitDemo {
+                    Section {
+                        Label("Demo mode: made-up data, no band connected. Nothing is sent or saved.",
+                              systemImage: "play.rectangle")
+                        Button("Exit demo", action: onExitDemo)
+                    }
+                }
+
                 Section("Status") {
                     statusRow
+                }
+
+                if let onStartDemo, canStartDemo {
+                    Section {
+                        Button("Try the demo", action: onStartDemo)
+                    } footer: {
+                        Text("No band nearby? The demo shows every feature with made-up data.")
+                    }
                 }
 
                 if state == .connected {
@@ -575,6 +609,14 @@ struct BandStatusContent: View {
     }
 
     /// Which button to show, if any, for the current state.
+    /// The demo is offered when there's no band to talk to.
+    private var canStartDemo: Bool {
+        switch state {
+        case .unsupported, .unauthorized, .poweredOff, .notFound, .failed: true
+        default: false
+        }
+    }
+
     private var buttonTitle: String? {
         switch state {
         case .connected: "Refresh"

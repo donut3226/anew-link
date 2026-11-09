@@ -39,6 +39,14 @@ struct BandStatusView: View {
                 liveContent
             }
         }
+        // While the phone rings with the app open, an alert over everything, so "Found it"
+        // is always one tap away (iOS shows no notification while the app is on screen).
+        .alert("Your band is looking for this phone", isPresented: Binding(
+            get: { findPhone.isRinging },
+            set: { showing in if !showing { findPhone.stop() } }
+        )) {
+            Button("Found it") { findPhone.stop() }
+        }
         .onChange(of: showCalendar) {
             Task { await calendarSync.enabledChanged(connection: connection) }
         }

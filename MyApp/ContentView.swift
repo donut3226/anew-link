@@ -30,6 +30,8 @@ private struct DemoScreen: View {
             switch name {
             case "notifications":
                 NotificationAppsView(apps: apps, status: .sent(at: Date()), onChange: { apps = WenaNotificationList.ordered($0) })
+            case "statusPages":
+                OrderEditor(title: "Status pages", items: settings.statusOrder, label: \.label) { settings.statusOrder = $0 }
             default:
                 BandSettingsView(settings: settings, status: .sent(at: Date()), onChange: { settings = $0 })
             }

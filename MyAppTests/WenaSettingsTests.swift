@@ -76,7 +76,7 @@ struct WenaSettingsTests {
 
     @Test func sendAllCoversEveryOpcodeOnce() {
         let opcodes = WenaSettings.allPackets(BandSettings()).compactMap(\.first)
-        #expect(opcodes == [0x08, 0x09, 0x14, 0x15, 0x16, 0x17, 0x1A, 0x1B, 0x1C])
+        #expect(opcodes == [0x08, 0x09, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C])
         // Never the packets we don't send.
         #expect(!opcodes.contains(0x12))
         #expect(!opcodes.contains(0x1D))
@@ -104,5 +104,50 @@ struct WenaTestNotificationTests {
         #expect(Array(packet[14..<18]) == [0x55, 0xE8, 0xE6, 0x0C])   // same timestamp bytes as Sony's
         #expect(String(decoding: packet[18..<27], as: UTF8.self) == "Anew Link")
         #expect(String(decoding: packet[27...], as: UTF8.self) == "Vibration test")
+    }
+}
+
+/// Status page (`0x18`) and tool menu (`0x19`) order (spec 15.2, 15.5).
+struct WenaPageOrderTests {
+
+    private func bytes(_ data: Data) -> [UInt8] { [UInt8](data) }
+
+    @Test func defaultsMatchSonyRewrite() {
+        let s = BandSettings()
+        #expect(bytes(WenaSettings.statusPages(s)) == [0x18, 0x01, 0x03, 0x07, 0x04, 0x05, 0x02, 0x06])
+        #expect(bytes(WenaSettings.menu(s)) == [0x19, 0x07, 0x02, 0x01, 0x03, 0x09, 0x08, 0x04, 0x06, 0x05, 0x00])
+    }
+
+    @Test func reorderedListIsSentInOrder() {
+        var s = BandSettings()
+        var pages = s.statusOrder
+        pages.insert(pages.remove(at: 5), at: 0)             // Sleep first
+        s.statusOrder = pages
+        #expect(bytes(WenaSettings.statusPages(s)) == [0x18, 0x02, 0x01, 0x03, 0x07, 0x04, 0x05, 0x06])
+    }
+
+    @Test func incompleteOrRepeatedListsAreCompleted() {
+        var s = BandSettings()
+        s.menuOrder = [.music, .music, .weather]
+        #expect(s.menuOrder.count == 10)
+        #expect(Array(s.menuOrder.prefix(2)) == [.music, .weather])
+        #expect(Set(s.menuOrder) == Set(MenuItem.allCases))
+    }
+
+    @Test func sendAllFollowsSonysOrder() {
+        let opcodes = WenaSettings.allPackets(BandSettings()).map { [UInt8]($0)[0] }
+        #expect(opcodes == [0x08, 0x09, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C])
+    }
+
+    /// Settings saved by builds before the page order existed still load.
+    @Test func oldSavedSettingsStillDecode() throws {
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(BandSettings())) as! [String: Any]
+        json.removeValue(forKey: "statusOrderStored")
+        json.removeValue(forKey: "menuOrderStored")
+        json["stepGoal"] = 8000
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try JSONDecoder().decode(BandSettings.self, from: data)
+        #expect(decoded.stepGoal == 8000)
+        #expect(decoded.statusOrder == StatusPage.sonyDefault)
     }
 }

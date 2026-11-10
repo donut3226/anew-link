@@ -62,6 +62,29 @@ struct BandSettingsView: View {
             }
 
             Section {
+                NavigationLink("Status pages") {
+                    OrderEditor(title: "Status pages", items: settings.statusOrder, label: \.label,
+                                footer: "Swipe up on the band's clock to see these pages, in this order.") { order in
+                        var new = settings
+                        new.statusOrder = order
+                        onChange(new)
+                    }
+                }
+                NavigationLink("Tool menu") {
+                    OrderEditor(title: "Tool menu", items: settings.menuOrder, label: \.label,
+                                footer: "The band's tool menu, in this order. Items whose services have ended stay on the list, because the band expects every item.") { order in
+                        var new = settings
+                        new.menuOrder = order
+                        onChange(new)
+                    }
+                }
+            } header: {
+                Text("Order on the band")
+            } footer: {
+                Text("Drag to reorder. Each change is sent straight away.")
+            }
+
+            Section {
                 actionPicker("Long press", \.longPress)
                 actionPicker("Double press", \.doublePress)
             } header: {
@@ -197,6 +220,35 @@ struct BandSettingsView: View {
 
     static func delayText(_ seconds: Int) -> String {
         seconds < 60 ? "\(seconds) seconds" : (seconds == 60 ? "1 minute" : "\(seconds / 60) minutes")
+    }
+}
+
+/// A drag-to-reorder list. Each move calls `onChange` with the new order.
+struct OrderEditor<Item: Identifiable & Hashable>: View {
+    let title: String
+    let items: [Item]
+    let label: KeyPath<Item, String>
+    var footer = ""
+    let onChange: ([Item]) -> Void
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(items) { item in
+                    Text(item[keyPath: label])
+                }
+                .onMove { from, to in
+                    var moved = items
+                    moved.move(fromOffsets: from, toOffset: to)
+                    onChange(moved)
+                }
+            } footer: {
+                Text(footer)
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 

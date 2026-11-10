@@ -74,8 +74,81 @@ nonisolated struct BandSettings: Codable, Equatable {
     var longPress: ButtonAction = .weatherScreen
     var doublePress: ButtonAction = .timerScreen
 
+    // Status page order (0x18) and tool menu order (0x19). Optional in storage so settings saved
+    // by older builds still load; nil means Sony's default order.
+    private var statusOrderStored: [StatusPage]?
+    private var menuOrderStored: [MenuItem]?
+
+    /// Status pages in the order the band shows them (all 7, always).
+    var statusOrder: [StatusPage] {
+        get { StatusPage.complete(statusOrderStored ?? StatusPage.sonyDefault) }
+        set { statusOrderStored = StatusPage.complete(newValue) }
+    }
+
+    /// Tool menu items in the order the band shows them (all 10, always).
+    var menuOrder: [MenuItem] {
+        get { MenuItem.complete(menuOrderStored ?? MenuItem.sonyDefault) }
+        set { menuOrderStored = MenuItem.complete(newValue) }
+    }
+
     /// Delays seen in Sony's picker, in seconds (all multiples of 5).
     static let disconnectDelayChoices = [5, 10, 15, 30, 60, 120, 180, 240]
+}
+
+/// Status page ids (`0x18`, spec 15.5).
+nonisolated enum StatusPage: UInt8, Codable, CaseIterable, Identifiable {
+    case steps = 0x01, sleep = 0x02, heartRate = 0x03, vo2Max = 0x04, stress = 0x05, bodyEnergy = 0x06, calorie = 0x07
+    var id: UInt8 { rawValue }
+    var label: String {
+        switch self {
+        case .steps: "Steps"
+        case .sleep: "Sleep"
+        case .heartRate: "Heart rate"
+        case .vo2Max: "VO2 Max"
+        case .stress: "Stress & Recovery"
+        case .bodyEnergy: "Body Energy"
+        case .calorie: "Calories"
+        }
+    }
+    /// The order Sony's rewrite sent: `18 01 03 07 04 05 02 06`.
+    static let sonyDefault: [StatusPage] = [.steps, .heartRate, .calorie, .vo2Max, .stress, .sleep, .bodyEnergy]
+
+    /// Removes repeats and adds any missing page at the end, so the band always gets all 7.
+    static func complete(_ order: [StatusPage]) -> [StatusPage] {
+        var seen = Set<StatusPage>()
+        let unique = order.filter { seen.insert($0).inserted }
+        return unique + sonyDefault.filter { !seen.contains($0) }
+    }
+}
+
+/// Tool menu ids (`0x19`, spec 15.5). Items whose services have ended are kept (the band still
+/// lists them), because leaving an id out of the packet is untested.
+nonisolated enum MenuItem: UInt8, Codable, CaseIterable, Identifiable {
+    case settings = 0x00, timer = 0x01, alarm = 0x02, findPhone = 0x03, alexa = 0x04
+    case payment = 0x05, qrioLock = 0x06, weather = 0x07, music = 0x08, camera = 0x09
+    var id: UInt8 { rawValue }
+    var label: String {
+        switch self {
+        case .settings: "Settings"
+        case .timer: "Timer"
+        case .alarm: "Alarm"
+        case .findPhone: "Find your phone"
+        case .alexa: "Alexa (service ended)"
+        case .payment: "Payment"
+        case .qrioLock: "Qrio Lock (service ended)"
+        case .weather: "Weather"
+        case .music: "Music"
+        case .camera: "Camera"
+        }
+    }
+    /// The order Sony's rewrite sent: `19 07 02 01 03 09 08 04 06 05 00`.
+    static let sonyDefault: [MenuItem] = [.weather, .alarm, .timer, .findPhone, .camera, .music, .alexa, .qrioLock, .payment, .settings]
+
+    static func complete(_ order: [MenuItem]) -> [MenuItem] {
+        var seen = Set<MenuItem>()
+        let unique = order.filter { seen.insert($0).inserted }
+        return unique + sonyDefault.filter { !seen.contains($0) }
+    }
 }
 
 /// Home screen icon ids (spec 15.5). Only icons that still work without Sony's servers.
@@ -145,13 +218,14 @@ nonisolated enum ButtonAction: UInt16, Codable, CaseIterable, Identifiable {
 /// Builds the settings packets for the control characteristic 1514.
 ///
 /// Each one matches byte for byte what Sony's app sent for the same setting (spec 15.2, 15.5).
-/// Deliberately missing: `0x12` (notification and calendar toggles), `0x1D` (body details),
-/// `0x18`/`0x19` (page order) and anything `0xC0` (Head Linkage).
+/// Deliberately missing: `0x12` (notification and calendar toggles), `0x1D` (body details)
+/// and anything `0xC0` (Head Linkage).
 nonisolated enum WenaSettings {
 
     /// The groups the settings screen changes. Each is sent on its own, like Sony's app does.
     enum Group: String, Codable, CaseIterable {
-        case vibration, disconnectAlert, doNotDisturb, autoPowerOff, dayStart, stepGoal, display, homeIcons, buttons
+        // In the order Sony's rewrite sends them (17, 18, 19, 1A, 1B, 1C).
+        case vibration, disconnectAlert, doNotDisturb, autoPowerOff, dayStart, stepGoal, statusPages, menu, display, homeIcons, buttons
     }
 
     /// The packets for one group, in order.
@@ -163,6 +237,8 @@ nonisolated enum WenaSettings {
         case .autoPowerOff: [autoPowerOff(s)]
         case .dayStart: [dayStart(s)]
         case .stepGoal: [stepGoal(s)]
+        case .statusPages: [statusPages(s)]
+        case .menu: [menu(s)]
         case .display: [display(s)]
         // Sony's app always re-sends the display packet just before the home icons.
         case .homeIcons: [display(s), homeIcons(s)]
@@ -207,6 +283,16 @@ nonisolated enum WenaSettings {
         var data = Data([0x17, s.goalNotification ? 1 : 0])
         withUnsafeBytes(of: Int32(clamping: max(s.stepGoal, 0)).littleEndian) { data.append(contentsOf: $0) }
         return data
+    }
+
+    /// `18`, one byte per status page id, in order.
+    static func statusPages(_ s: BandSettings) -> Data {
+        Data([0x18] + s.statusOrder.map(\.rawValue))
+    }
+
+    /// `19`, one byte per tool menu id, in order.
+    static func menu(_ s: BandSettings) -> Data {
+        Data([0x19] + s.menuOrder.map(\.rawValue))
     }
 
     /// `1A`, font (0 normal, 1 large), wrist (0 right, 1 left), language (0 English, 1 Japanese),

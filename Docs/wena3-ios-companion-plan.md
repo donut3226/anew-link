@@ -246,7 +246,7 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 | Alarms (9, repeat days, smart wake-up) | Done | Confirm repeat days and smart wake-up on the band |
 | Find my phone, song title | Done | - |
 | Vibration, display, home icons, button, step goal, day start, do not disturb, auto power off, disconnect alert | Done (settings screen, build 66/67), "Send all settings", "Feel it" test buzz | Confirm each on the band |
-| Tool menu order and status page order | Not built | Packets and ids mapped (spec 15.5); needs a drag-to-reorder list |
+| Tool menu order and status page order | Built 10 Nov 2026: drag-to-reorder lists in Band settings, in "Send all settings" (all ids always sent) | Confirm on the band that the new order shows |
 | Per-app notifications (which apps reach the band, LED colour, vibration pattern, count) | Built 10 Nov 2026: "Notifications on the band" screen, preset apps plus any name, Calls, "Try it" buzz, in "Send all settings" | Confirm on the band: the list characteristic is found (event log), an app removed from the list stops reaching the band |
 | Notifications and calendar master switch (`0x12`) | Not sent | Sony sends `12 01 01` on every app open; lifting the rule is the owner's call |
 | Activity history: steps, heart rate | Done, saved to Apple Health | - |

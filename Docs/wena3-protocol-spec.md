@@ -358,3 +358,73 @@ So "Delete pairing" is the gentle route (the band keeps its settings), and "Init
 - Unknown and only testable on a stuck band: whether a reset band shows notifications without the `0x12` toggles packet (its defaults after reset are unknown), whether it asks for weather and calendar by itself, and whether it accepts our verified packets (time, weather, calendar, alarms) straight away.
 
 Sources: Sony wena 3 help guide (https://www.sony.jp/support/smartwatch/helpguide_wena3.pdf), Gadgetbridge Sony page (https://gadgetbridge.org/gadgets/wearables/sony/) and pairing page (https://gadgetbridge.org/basics/pairing/), Gadgetbridge PR #3311 (https://codeberg.org/Freeyourgadget/Gadgetbridge/pulls/3311), tecstaff (https://tecstaff.jp/2026-02-12_wena3.html, https://tecstaff.jp/2026-03-02_wena.html), garmy on note.com (https://note.com/garmy/n/n6e87d564566e), mikan-partners (https://www.mikan-partners.com/archives/4827), wena FAQ (https://wena.jp/supports/faq.html).
+
+## 15. Sony's own app, captured (10 Nov 2026)
+
+Our own capture: the owner tapped **Rewrite settings** in Sony's wena 3 app (still installed, still connecting) on the iPhone 17 Pro, recorded with Apple's iOS Bluetooth logging profile and PacketLogger over USB, exported as BTSnoop and decoded by us. The band was the owner's, firmware `2.40JP`. This is a first-party source under section 0: it shows what Sony's app actually sends, so the byte layouts below no longer depend only on Gadgetbridge. The raw capture stays off the repo (it holds the band's address and serial, the owner's calendar titles and body details).
+
+All writes were ATT Write Requests (with response), one at a time, about 60 ms apart. Values below are the owner's own settings, except body properties, which are left out.
+
+### 15.1 Handles seen (this band, this iPhone; handles are not guaranteed stable, always look up by UUID)
+
+| Handle | What it is | How we know |
+|---|---|---|
+| `0x1022` | 1503 mode, read returned `02` | read in the capture, 1501 handle order |
+| `0x1024` | 1520 info | read returned the firmware name `2.40JP` |
+| `0x1026` | 1521 state | read returned battery `0x5E` (94%) |
+| `0x1028` | 1514 control | carried `0x10`, `0x11` and all settings opcodes |
+| `0x102B` | **new: notification app list** (next characteristic after 1514 in service 1501; UUID not in the capture, to confirm with a read-only discovery) | section 15.3 |
+| `0x1052` / `0x1053` | 4002 value / its notify descriptor | calendar entries written here |
+| `0x1062` / `0x1063` | 3002 value / its notify descriptor | activity sync as in section 7 |
+| `0x1012`, `0x1014` | **unknown service 4201**, characteristics 4202 and 4203 (vendor pattern) | discovered by Sony's app; it only subscribed to 4203 |
+| `0x1072`, `0x1074` | **unknown service 4301**, characteristics 4302 (write) and 4303 (notify) | Sony's app wrote short `10 00 06 08 ..` messages and the band answered. Purpose unknown (maybe payment or Riiiver). **Never write** |
+| `0x10A2`, `0x10A4` | unknown non-Sony 128-bit service `D44BC439-ABFD-45A2-B575-925416129600` | subscribed only |
+| `0x10B4` | unknown notify, band sent `C1 01 00 71 00 ...` | not decoded |
+
+### 15.2 Rewrite settings: what Sony sends on 1514, in order
+
+| # | Bytes (hex) | Meaning, checked against the owner's settings seen in Sony's app |
+|---|---|---|
+| 1-3 | `06 00 02 7F 00 06 1E 01 00.. 02 00..`, `06 03 ..`, `06 06 ..` | Alarms, layout as section 9. Slot 0 on, every day (`7F`), no smart wake, 06:30; slots 1-8 empty. **Note: this replaced whatever alarms Anew Link had sent.** |
+| 4 | `08 00 00` | Vibration: normal (Sony's "Medium"), smart vibration off (Sony's "Stop vibrating at rest" off). Matches |
+| 5 | `09 00` | **New opcode, not in Gadgetbridge.** Most likely the disconnection alert (owner has it off). Layout when on (seconds?) **UNKNOWN** |
+| 6 | `10 xx xx xx xx` | Set time, as section 4 |
+| 7 | `11 0B 00` | Time zone +11:00, as section 4 |
+| 8 | `12 01 01` | Notifications on, calendar on. **Sony's own app sends this on every rewrite**, see 15.4 |
+| 9 | `14 00 00 00 06 00` | Do not disturb off, 00:00-06:00 |
+| 10 | `15 00 00 00 06 00` | Auto power off: off, 00:00-06:00. Sony's screen showed 22:00-08:00, so when a switch is off the app seems to send placeholder times. **Check before relying on the time fields** |
+| 11 | `16 00` | Day start 0:00. Matches |
+| 12 | `17 01 70 17 00 00` | Goal notification on, 6000 steps (int32). Matches |
+| 13 | `18 01 03 07 04 05 02 06` | Status page order, 7 ids |
+| 14 | `19 07 02 01 03 09 08 04 06 05 00` | Menu (tool screen) order, 10 ids |
+| 15 | `1A 00 01 00 01 00 00 07` | Display: normal font, left hand, English, raise to wake on, normal design, no weather in status bar, 7 s. **Every field matches** Sony's screen, so the section 9 layout is confirmed |
+| 16 | `1B 00 0E 00 0C 00 0A` | Home icons left, centre, right = Stress & Recovery, Heart Rate, Steps. So on the wire each icon is `00` then the id: `0x0E` stress, `0x0C` heart rate, `0x0A` steps |
+| 17 | `1C 07 00 06 00` | Long press = weather screen (`07 00`), double press = timer screen (`06 00`). Matches, and these are the **same action codes as the Head Linkage table in section 12** |
+| 18 | `1D` + 9 bytes | Body properties. 10 bytes in total; the decoded values are plausible only with **height before weight, both x10**, which confirms the corrected order in section 4. Values withheld |
+| 19 | `C0 00 00` | Head Linkage **off** (the owner has no watch head) |
+| 20 | `C0 20 01 64 00 00 00 00 00 00 00` | Head indicator = band battery. Byte 3 is `64` (100), where the section 12 report had `00` |
+| 21-24 | `C0 10 00 0B 00`, `C0 10 01 01 00`, `C0 11 00 06 01`, `C0 11 01 06 00` | Head buttons: B short notifications screen, B long `01 00` (Alexa screen, matches the reporter's default), A short start or stop timer, A long timer screen |
+| 25 | `C0 30 02 01` | Notifications on the watch hands, as section 12 |
+| 26 | `04` | **New: a lone `04`**, sent last. Most likely "end of settings" or "apply". **UNVERIFIED** |
+
+Missing from Sony's rewrite: `0x21` camera app type (Xperia only), so iPhone owners never need it.
+
+Status page and menu ids are not mapped yet. The menu list contains `07` (weather) and `03` (find phone), which match the action codes, so the menu ids may share the action table. Map them by changing one item in Sony's app, capturing again and comparing.
+
+### 15.3 Notification app list (new, handle `0x102B`)
+
+This is how the band knows which iPhone apps to show, with what LED colour and vibration, since ANCS itself carries no such settings. Sony's app wrote the whole list twice, then `04`, then `12 01 01` on 1514.
+
+- **Framing:** each write is `[fragment number][byte count][up to 18 bytes]`, so a write is at most 20 bytes. A record longer than 18 bytes continues in fragment `01`. A record of exactly 18 bytes is followed by an empty `01 00`.
+- **Record:** kind (`00` app, `01` phone call), name length, name in UTF-8 (the app's display name as iOS shows it, for example `Gmail`, `WhatsApp`, `Proton Mail`; calls use `phone`), then 5 setting bytes, then the list position as int16 (counting down to 0, call is 0).
+- **The 5 setting bytes** follow the same order as the notification packet fields in section 8, which suggests LED colour, vibration flags (always `03` here), vibration pattern, vibration count, enabled. For example `07 03 02 01 01` for most apps, `03 03 03 02 01` for WhatsApp, `07 03 01 00 01` for calls. Which colour and pattern each number means is **UNVERIFIED**: compare with Sony's per-app screens, or change one value and capture again.
+- **End of list:** a single `04` on the same characteristic.
+- The band seems to match ANCS notifications to this list by app name. Whether an app missing from the list is shown or hidden is **UNVERIFIED** (Sony's screen says only listed apps reach the band).
+
+### 15.4 What this changes for us
+
+- `0x12` with `01 01` is exactly what Sony's app sends whenever it rewrites settings, and the owner's notifications have kept working. So sending `12 01 01` (both on) matches Sony and is low risk. Sending `00` in either field is still untested and stays forbidden. Lifting the "do not send `0x12`" rule is the owner's call; it would most help a reset band whose defaults are unknown (section 14.5).
+- Opcodes `0x08`, `0x16`, `0x17`, `0x1A`, `0x1B` and `0x1C` are now confirmed field by field against Sony's own values. `0x14` and `0x15` are confirmed for the on/off byte only.
+- Anew Link can now copy its first settings write from these exact bytes, so nothing visibly changes on the band.
+- Sony's "Rewrite settings" also rewrites alarms, Head Linkage and the notification list. Any owner who still uses Sony's app will overwrite Anew Link's alarms that way.
+- Sony's app also ran a normal activity sync (section 7 requests, the same layout) and sent calendar entries as in section 5. In Sony's writes the title went in a separate write after the 14-byte header.

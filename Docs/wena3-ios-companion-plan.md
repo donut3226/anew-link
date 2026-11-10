@@ -286,12 +286,13 @@ Looked at only: no values changed, nothing saved, Sync, Rewrite settings and the
 
 The owner's current band settings, to send unchanged the first time Anew Link writes each setting (so nothing visibly changes): vibration Medium, stop at rest off; left wrist, normal font, display 7 s, raise to wake on, English; home icons Stress & Recovery / Heart Rate / Steps, Normal design; long press = weather screen, double press = timer screen; auto power off off (22:00-08:00); disconnect alert off (5 s); day start 0:00; step goal 6000 with goal notification on. Body details are left out of this public doc.
 
-**Best way to get the missing packets (per-app notifications, disconnect alert, id tables):** record what Sony's app sends. Install Apple's Bluetooth logging profile on the iPhone, open PacketLogger on the Mac, then press **Rewrite settings** in Sony's app. That re-sends the band's own current settings (no change on the band) and gives us every settings packet as our own capture, which CLAUDE.md allows as a source. It's a band write by Sony's app, so it's the owner's call, and worth doing once before Anew Link starts sending settings.
+**Captured (10 Nov 2026):** the owner tapped Rewrite settings in Sony's app while PacketLogger recorded the iPhone's Bluetooth. Every settings packet Sony sends is now in spec section 15, including two that Gadgetbridge never had: the per-app notification list (a new characteristic next to 1514) and a `0x09` packet that is most likely the disconnect alert. `0x1A` display, `0x1B` home icons, `0x1C` buttons, `0x17` step goal, `0x08` vibration and `0x16` day start match Sony's values field by field. Sony's app sends `12 01 01` on every rewrite, so sending that exact packet is low risk (lifting the "never `0x12`" rule is still the owner's call). The rewrite also replaced the band's alarms with Sony's list (06:30 every day, the rest empty), so re-save alarms in Anew Link if they differ.
 
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
-2. Band settings one packet at a time (vibration, do not disturb, display...), never `0x12`.
-3. Release: external TestFlight testers (other Wena owners, needs a short beta review), then the App Store listing (`Docs/release-checklist.md`).
+2. Band settings one packet at a time, starting from the exact bytes Sony sent (spec 15.2), so nothing changes on the band: vibration, step goal, display, home icons, buttons. Never `0x12` unless the owner lifts that rule.
+3. Map the remaining ids (status pages, menu, notification colours and patterns) by changing one thing in Sony's app and capturing again.
+4. Release: external TestFlight testers (other Wena owners, needs a short beta review), then the App Store listing (`Docs/release-checklist.md`).
 
 iOS background refresh as a backup was dropped: the band's own 30-minute tick and 4-hourly weather request already wake the app.
 

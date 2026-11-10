@@ -41,3 +41,35 @@ Done in the code already: paid team `WVWWUXQ867` selected, final bundle ID `com.
 - Finish the hardware tests in the plan's test backlog (automatic activity save, heart rate, calendar, find my phone vibration).
 - Re-check the spec against current Gadgetbridge (spec section 11) for any protocol changes.
 - Make the GitHub repository public if the privacy policy is hosted there, and check nothing private is in its history (the band's serial must never be in commits).
+
+## 5. External TestFlight (other Wena owners), drafted 10 Nov 2026
+
+External testers need one short Beta App Review per version (usually under a day). After that, new builds of the same version usually go out without another review. A **public link** lets anyone join (up to 10,000 people), so no email addresses need collecting.
+
+**Steps in App Store Connect** (Anew Link > TestFlight):
+1. **Test Information** (left sidebar): paste the Beta App Description and Feedback Email below, the privacy policy URL (https://donut3226.github.io/anew-link/Docs/privacy-policy.html), and the review notes from section 3 (also add the line below about settings).
+2. **External Testing > +**: create a group, for example "Wena owners".
+3. Add the newest build to the group, answer "What to Test", and **Submit for Review**.
+4. Once approved: in the group, **Public Link > Enable**, optionally with a tester limit, and share the link.
+
+**Beta App Description** (testers see this):
+> Anew Link is a free, open-source and unofficial companion app for the Sony Wena 3 band (WNW-21A), made by an owner after Sony ended support on 28 February 2026. It keeps the band's time and weather up to date, shows your calendar and the song playing, sets alarms and band settings, rings your phone from the band, and saves steps and heart rate to Apple Health. Not affiliated with or endorsed by Sony. Suica, payments, Alexa and Qrio can't be brought back.
+
+**What to Test** (per build):
+> Pair your band in iOS Settings > Bluetooth if it isn't already, open the app, and check: time and weather on the band, an alarm a few minutes ahead, Band settings (try "Feel it on the band"), and Activity > Save to Apple Health. If your band lost its pairing after Sony's app stopped working, please say so in feedback: that's the next thing being built. Use the screenshot or "Send Beta Feedback" in TestFlight to report anything odd.
+
+**Extra review note** (add to section 3's notes):
+> The Band settings screen and its "Feel it on the band" button only send settings the user changes, to the user's own band. In demo mode nothing is sent.
+
+**Feedback email:** the owner's choice (TestFlight shows it to testers; a separate address from the Apple IDs is a good idea).
+
+**Where Wena owners are** (the owner posts; nothing is posted automatically):
+- The Gadgetbridge Wena 3 issues and discussions on Codeberg.
+- Japanese owner blogs and X, since most Wena 3 bands were sold in Japan (tecstaff, note.com writers in spec 14.4). The app is English-only for now, so say so.
+- Reddit or watch forums where Wena bands were discussed.
+
+**Invite post (English):**
+> Wena 3 owners on iPhone: Sony's app support ended in February, so I built a free, open-source replacement called Anew Link (unofficial). It brings back weather and calendar on the band, alarms, band settings, find my phone, song titles, and saves steps and heart rate to Apple Health. It's in TestFlight beta: [public link]. Code: https://github.com/donut3226/anew-link. I'd especially like to hear from anyone whose band lost its pairing.
+
+**Invite post (Japanese draft, English-only app):**
+> wena 3 を iPhone で使っている方へ。Sony のアプリのサポートが2月で終了したため、無料・オープンソースの非公式アプリ「Anew Link」を作りました。バンドへの天気・カレンダー表示、アラーム、バンドの設定、スマホを探す、曲名表示、歩数と心拍数の Apple ヘルスケアへの保存ができます。TestFlight でベータ版を公開中です: [public link]。アプリは現在英語のみです。ペアリングが外れてしまったバンドをお持ちの方の感想を特に歓迎します。

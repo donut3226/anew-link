@@ -236,34 +236,34 @@ Open questions that only stuck owners can answer (put in the tester notes):
 
 Next: build the flow, then open external TestFlight and invite stuck owners to test it.
 
-### Sony app vs Anew Link (from Sony's help guide pages 13-19, 10 Nov 2026)
+### Sony app vs Anew Link (updated 10 Nov 2026, after the Sony captures and the settings screen)
 
-What Sony's wena 3 app did, and where Anew Link stands. "Spec" points to the protocol spec; every band write still follows the one-packet-at-a-time rule.
+| Sony app feature | Anew Link | What's left |
+|---|---|---|
+| Sync (time, battery, activity) | Done, automatic: time and weather when the band asks, activity every 2 h in the background | - |
+| Weather on the band | Done (Sony's weather service had already ended, so this is better than Sony now) | - |
+| Calendar on the band | Done, next 7 days | Choose which calendars |
+| Alarms (9, repeat days, smart wake-up) | Done | Confirm repeat days and smart wake-up on the band |
+| Find my phone, song title | Done | - |
+| Vibration, display, home icons, button, step goal, day start, do not disturb, auto power off, disconnect alert | Done (settings screen, build 66/67), "Send all settings", "Feel it" test buzz | Confirm each on the band |
+| Tool menu order and status page order | Not built | Packets and ids mapped (spec 15.5); needs a drag-to-reorder list |
+| Per-app notifications (which apps reach the band, LED colour, vibration pattern, count) | Not built | Packet mapped (spec 15.3, 15.5). Biggest gap: a reset band probably has an empty list |
+| Notifications and calendar master switch (`0x12`) | Not sent | Sony sends `12 01 01` on every app open; lifting the rule is the owner's call |
+| Activity history: steps, heart rate | Done, saved to Apple Health | - |
+| Sleep, calories, VO2 Max, stress, body energy | Not decoded | Decode the other activity types (dashboard values noted for one capture); sleep, calories and VO2 Max have Apple Health types |
+| Body details (birth date, height, weight, gender) | Not built | Layout confirmed (spec 15.2); Health can supply the values; affects calorie accuracy |
+| Pairing a new or reset band | Not built | Design in plan 14; needs a test on a stuck band |
+| Rewrite settings | Done ("Send all settings") | - |
+| Watch head (Head Linkage) | Not built | Only for WIRED/Seiko heads, out of scope |
+| Account, Suica, Edy, iD/QUICPay, Alexa, Qrio, Riiiver, MAMORIO, firmware | Can't come back | - |
 
-| Sony app feature | What it did | Anew Link | Packet |
-|---|---|---|---|
-| Sync button / pull down on dashboard | Read activity, battery, notification history; sync time | Done: time, battery, activity (automatic, every 2 h) | `0x10`, `0x11`, 3002 |
-| Dashboard and history (Day/Week/Month/Year) | Steps, calories, distance, heart rate zones, sleep, stress, body energy, VO2 Max | Steps and heart rate go to Apple Health, which shows the history. Sleep, stress, body energy, VO2, calories: parsers not extracted | Spec 7 |
-| Activity log settings | Birth date, gender, height, weight, resting heart rate, goal notification, step goal | Not built. Step goal is a candidate; body properties unverified; resting heart rate is not in the spec (may be app-side only) | `0x17`, `0x1D` |
-| Day start time | When the activity day starts | Not built | `0x16` |
-| Notification settings | On/off, per-app and calls LED colour, vibration pattern and count | Not built. On iPhone the band gets notifications through ANCS; how Sony set per-app LED and vibration for ANCS is unknown (not in the spec) | `0x12` (do not send) |
-| Vibration | Weak, medium, strong; stop vibrating when still for over a minute | Not built | `0x08` |
-| Display | Wrist, font size, home icons (3) and normal/rich design, tool menu order, status page order, raise to wake, language | Not built. Id tables for icons, menu and pages not extracted | `0x1A`, `0x1B`, `0x19`, `0x18` |
-| Button shortcuts | Long press and double click: music, NFC, silent, find phone, timer, weather, music screens | Not built. Action id table not extracted | `0x1C` |
-| Night settings | Auto power off window, alarms (9, repeat days, smart window), silent hours | Alarms built (on-band test pending). Auto power off and silent hours not built | `0x06`, `0x15`, `0x14` |
-| Disconnect alert | Band buzzes when the phone link drops, after a set time | Not built; packet not in the spec | Unknown |
-| Calendar | Choose which calendars go to the band | Done (next 7 days). Calendar choice not built | `0x02` on 4002 |
-| Weather | Location for weather; weather icon on the home screen | Done (current location). Status bar icon is part of the display packet | `0x03` on 4002, `0x1A` |
-| Rewrite settings | Re-send every setting to the band | Not built. Useful after a reset or forced reset, once settings exist | All of the above |
-| Find my phone, music text | Ring the phone; song title on the band | Done | Requests 2 and 11 |
-| Firmware version and update | Show versions; update the band | Version shown. Updates out of scope | 1520 |
-| Shortcuts, colour theme, help | App-only conveniences | iOS dark mode covers the theme; help is the app's own text | None |
-| Account, Suica, Edy, iD/QUICPay, Alexa, Qrio setup | Cloud and payment services | Can't come back (servers gone) | None |
-
-What this says about priorities:
-- **Band settings are the main gap.** Most packets are already in spec 9; the missing parts are the id tables (icons, menu, pages, buttons) and a disconnect-alert packet.
-- Cheapest useful first steps, all simple on/off or number packets: vibration (`0x08`), silent hours (`0x14`), auto power off (`0x15`), step goal (`0x17`), raise to wake and font in the display packet (`0x1A`, which needs all its fields at once, so it waits until the current values are known).
-- The band can't be read back, so like alarms, the app's stored values become the source of truth, and the first send replaces whatever Sony's app set. A "rewrite all settings" button then falls out for free.
+Ways Anew Link can beat Sony's app (ideas, not built):
+- **Low battery warning on the iPhone** when the band drops below 20%, and a battery widget.
+- **Find my band:** a button (and a Siri Shortcut) that buzzes the band with the test notification.
+- **Focus sync:** a Shortcut action so an iPhone Focus (Sleep, Do Not Disturb) switches the band's do not disturb on and off.
+- **Notification list from your phone:** pick from common apps rather than typing names, with sensible defaults for a reset band.
+- **Home screen preview:** a drawing of the band's home screen that updates as icons are picked.
+- **Guided setup** for a new or reset band (plan 14), ending with "Send all settings" and a test buzz.
 
 ### Sony app on the owner's iPhone (looked at through iPhone Mirroring, 10 Nov 2026)
 

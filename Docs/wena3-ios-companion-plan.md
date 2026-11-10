@@ -257,11 +257,11 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 | Watch head (Head Linkage) | Not built | Only for WIRED/Seiko heads, out of scope |
 | Account, Suica, Edy, iD/QUICPay, Alexa, Qrio, Riiiver, MAMORIO, firmware | Can't come back | - |
 
-Ways Anew Link can beat Sony's app (ideas, not built):
-- **Low battery warning on the iPhone** when the band drops below 20%, and a battery widget.
-- **Find my band:** a button (and a Siri Shortcut) that buzzes the band with the test notification.
-- **Focus sync:** a Shortcut action so an iPhone Focus (Sleep, Do Not Disturb) switches the band's do not disturb on and off.
-- **Notification list from your phone:** pick from common apps rather than typing names, with sensible defaults for a reset band.
+Ways Anew Link can beat Sony's app:
+- **Low battery warning on the iPhone** when the band drops to 20% (built 10 Nov 2026, off by default, once per charge). A battery widget is not built: it needs a widget extension target and an App Group, both new identifiers on the paid team.
+- **Find my band:** a button and a Shortcuts action ("Find My Band", also by Siri) that sends the test notification with the siren pattern, 3 times (built 10 Nov 2026).
+- **Focus sync:** a Shortcuts action "Set Band Do Not Disturb" (on or off) for Focus automations (built 10 Nov 2026). On = `14 01 00 00 17 3B` (all day, 00:00-23:59, **UNVERIFIED** that the band treats that as all day); off = the user's own do not disturb setting.
+- **Notification list from your phone:** pick from common apps rather than typing names, with sensible defaults for a reset band (built 10 Nov 2026).
 - **Home screen preview:** a drawing of the band's home screen that updates as icons are picked.
 - **Guided setup** for a new or reset band (plan 14), ending with "Send all settings" and a test buzz.
 

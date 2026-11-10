@@ -68,7 +68,7 @@ final class BandSettingsStore {
     /// Makes the band buzz once (a test notification), so the user can feel the strength.
     /// Only when connected and idle; nothing waits for later.
     /// `app` (from the notification list's "Try it") buzzes with that app's colour, pattern and count.
-    func testVibration(using connection: BandConnection, app: NotifyApp? = nil) async {
+    func testVibration(using connection: BandConnection, app: NotifyApp? = nil, text: String? = nil) async {
         guard connection.state == .connected, !connection.isSending, !connection.activity.inProgress else {
             status = .failed("Connect the band to feel the vibration.")
             return
@@ -77,11 +77,30 @@ final class BandSettingsStore {
         let id = Int32(clamping: defaults.integer(forKey: Self.testIdKey) + 1)
         defaults.set(Int(id), forKey: Self.testIdKey)
         status = .sending
-        if let error = await connection.sendTestNotification(Self.testPacket(id: id, app: app)) {
+        if let error = await connection.sendTestNotification(Self.testPacket(id: id, app: app, text: text)) {
             status = .failed(error)
         } else {
             status = .buzzed(at: Date())
         }
+    }
+
+    /// Find my band: a strong test notification (siren, 3 times) so the band buzzes and lights up.
+    /// Returns nil on success, otherwise a message.
+    @discardableResult
+    func findBand(using connection: BandConnection) async -> String? {
+        let band = NotifyApp(name: "Find my band", colour: .white, pattern: .siren, count: .threeTimes)
+        await testVibration(using: connection, app: band, text: "Here I am")
+        if case .failed(let message) = status { return message }
+        return nil
+    }
+
+    /// Focus sync (a Shortcuts action): do not disturb all day while a Focus is on, then back to
+    /// the user's own setting. The saved settings don't change. Returns nil on success.
+    func setFocusDoNotDisturb(_ on: Bool, using connection: BandConnection) async -> String? {
+        guard connection.state == .connected, !connection.isSending, !connection.activity.inProgress else {
+            return "The band isn't connected."
+        }
+        return await connection.sendSettings([WenaSettings.focusDoNotDisturb(on: on, settings)])
     }
 
     /// Called when the band connects: sends changes that couldn't be sent earlier.
@@ -93,13 +112,13 @@ final class BandSettingsStore {
 
     // MARK: - Private
 
-    private static func testPacket(id: Int32, app: NotifyApp?) -> Data {
+    private static func testPacket(id: Int32, app: NotifyApp?, text: String?) -> Data {
         guard let app else { return WenaTestNotification.packet(id: id, date: Date()) }
         return WenaTestNotification.packet(id: id, date: Date(), colour: app.colour.rawValue,
                                            // A test that repeats until dismissed would be annoying: buzz twice instead.
                                            pattern: app.pattern.rawValue,
                                            count: app.count == .repeating ? NotifyCount.twice.rawValue : app.count.rawValue,
-                                           text: "\(app.displayName) pattern")
+                                           text: text ?? "\(app.displayName) pattern")
     }
 
     private func send(using connection: BandConnection) async -> Bool {

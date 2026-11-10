@@ -17,10 +17,16 @@ final class AppServices {
     let alarmStore = AlarmStore()
     let bandSettings = BandSettingsStore()
     let notificationApps = NotificationAppsStore()
+    let batteryWarning = BatteryWarning()
+
+    /// The one instance, for Shortcuts actions (set at launch by the app delegate).
+    static var shared: AppServices?
 
     /// Called once, at launch.
     func start() {
+        Self.shared = self
         nowPlaying.attach(to: connection)
+        connection.onBatteryRead = { [weak self] percent in self?.batteryWarning.batteryRead(percent) }
 
         // The band's requests (spec section 6). Only these five are answered.
         connection.onBandRequest = { [weak self] request in

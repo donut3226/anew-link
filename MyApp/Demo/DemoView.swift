@@ -19,6 +19,7 @@ struct DemoView: View {
     @State private var autoSaveActivity = true
     @State private var showSongTitle = false
     @State private var findPhone = false
+    @State private var batteryWarning = false
     @State private var showCalendar = false
     @State private var lastActivitySave: Date?
     @State private var calendarChoices = [
@@ -65,6 +66,8 @@ struct DemoView: View {
             showSongTitle: $showSongTitle,
             music: showSongTitle ? .sent(text: "Demo Song / Demo Artist", at: Date()) : .idle,
             findPhoneEnabled: $findPhone,
+            onFindBand: { bandSettingsStatus = .buzzed(at: Date()) },
+            batteryWarning: $batteryWarning,
             showCalendar: $showCalendar,
             calendar: showCalendar ? .sent(count: 3, at: Date(), test: false) : .idle,
             calendarChoices: calendarChoices,

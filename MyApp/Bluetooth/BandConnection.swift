@@ -87,6 +87,8 @@ final class BandConnection: NSObject {
     /// Called for every request the band sends on 4002, after it's logged.
     /// Features that answer a request (for example the song title) hook in here.
     @ObservationIgnored var onBandRequest: ((BandRequest) -> Void)?
+    /// Called with every battery reading (the low battery warning hooks in here).
+    @ObservationIgnored var onBatteryRead: ((Int) -> Void)?
     /// The raw activity packets from the last sync, kept in memory only, for the debug copy button.
     @ObservationIgnored private(set) var rawActivityPackets: [Data] = []
 
@@ -243,6 +245,17 @@ final class BandConnection: NSObject {
                 continuation.resume(returning: error)
             }
         }
+    }
+
+    /// Waits until the band is connected, for Shortcuts that may run right after a background launch.
+    /// Returns false if it isn't connected within `timeout`.
+    func waitUntilConnected(timeout: Duration = .seconds(15)) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while state != .connected || isSending || activity.inProgress {
+            guard ContinuousClock.now < deadline else { return false }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return true
     }
 
     // MARK: - Activity sync (spec section 7)
@@ -694,6 +707,7 @@ extension BandConnection: CBPeripheralDelegate {
             if info == nil { fail("The band sent device info in an unexpected format.") }
         case WenaGATT.stateCharacteristic:
             batteryPercent = BandInfoParser.parseBattery(data)
+            if let batteryPercent { onBatteryRead?(batteryPercent) }
         default:
             break
         }

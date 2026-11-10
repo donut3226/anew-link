@@ -25,6 +25,8 @@ struct BandStatusView: View {
     @State private var isDemo = false
     /// The "Ring when the band looks for this phone" switch.
     @AppStorage(FindPhone.enabledKey) private var findPhoneEnabled = false
+    /// The "Warn when the band's battery is low" switch.
+    @AppStorage(BatteryWarning.enabledKey) private var batteryWarningEnabled = false
     /// The "Save activity to Apple Health automatically" switch.
     @AppStorage(ActivityAutoSync.enabledKey) private var autoSaveActivity = true
     /// The "update automatically" switch, saved in the iPhone's settings store.
@@ -55,6 +57,9 @@ struct BandStatusView: View {
         }
         .onChange(of: findPhoneEnabled) {
             Task { await findPhone.enabledChanged() }
+        }
+        .onChange(of: batteryWarningEnabled) {
+            Task { await services.batteryWarning.enabledChanged() }
         }
         .onChange(of: showSongTitle) {
             Task { await nowPlaying.enabledChanged() }
@@ -113,6 +118,9 @@ struct BandStatusView: View {
             findPhonePermissionDenied: findPhone.permissionDenied,
             onStopRinging: { findPhone.stop() },
             onTestFindPhone: { Task { _ = await findPhone.bandAsked() } },
+            onFindBand: { Task { await bandSettings.findBand(using: connection) } },
+            batteryWarning: $batteryWarningEnabled,
+            batteryWarningDenied: services.batteryWarning.permissionDenied,
             showCalendar: $showCalendar,
             calendar: calendarSync.status,
             calendarPermissionDenied: calendarSync.permissionDenied,
@@ -210,6 +218,9 @@ struct BandStatusContent: View {
     var findPhonePermissionDenied = false
     var onStopRinging: () -> Void = {}
     var onTestFindPhone: () -> Void = {}
+    var onFindBand: () -> Void = {}
+    var batteryWarning: Binding<Bool> = .constant(false)
+    var batteryWarningDenied = false
     var showCalendar: Binding<Bool> = .constant(false)
     var calendar: CalendarSync.Status = .idle
     var calendarPermissionDenied = false
@@ -367,6 +378,21 @@ struct BandStatusContent: View {
                         Text("Find my phone")
                     } footer: {
                         Text("With the app open, it rings at your media volume and vibrates, even in silent mode. Otherwise it shows a notification, which follows your ringer and silent mode.")
+                    }
+
+                    Section {
+                        Button("Find my band", systemImage: "waveform.badge.magnifyingglass", action: onFindBand)
+                            .disabled(isBusy || state != .connected)
+                        Toggle("Warn when the band's battery is low", isOn: batteryWarning)
+                        if batteryWarningDenied {
+                            Label("Notifications are off. Turn them on in Settings > Notifications > Anew Link.",
+                                  systemImage: "hand.raised")
+                                .foregroundStyle(.orange)
+                        }
+                    } header: {
+                        Text("Find my band and battery")
+                    } footer: {
+                        Text("Find my band makes the band vibrate and light up. The battery warning appears once below \(BatteryWarningRule.low)%. Both are also in the Shortcuts app, with \"Set Band Do Not Disturb\" for Focus automations.")
                     }
 
                     Section {

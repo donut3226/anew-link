@@ -296,6 +296,14 @@ nonisolated enum WenaSettings {
         window(0x15, on: s.autoPowerOffOn, s.autoPowerOffStart, s.autoPowerOffEnd)
     }
 
+    /// For Focus sync: do not disturb on all day (00:00 to 23:59) while a Focus is on, and the
+    /// user's own do not disturb setting when it ends. Same `14` layout; the all-day window
+    /// itself is **UNVERIFIED** on the band.
+    static func focusDoNotDisturb(on: Bool, _ s: BandSettings) -> Data {
+        on ? window(0x14, on: true, BandClockTime(hour: 0, minute: 0), BandClockTime(hour: 23, minute: 59))
+           : doNotDisturb(s)
+    }
+
     /// `16`, the hour the band's day starts.
     static func dayStart(_ s: BandSettings) -> Data {
         Data([0x16, UInt8(clamping: min(max(s.dayStartHour, 0), 23))])

@@ -26,6 +26,8 @@ struct DemoView: View {
         BandAlarm(isOn: false, hour: 8, minute: 0, repeatDays: [1, 7]),
     ]
     @State private var alarmStatus: AlarmStore.Status = .idle
+    @State private var bandSettings = BandSettings()
+    @State private var bandSettingsStatus: BandSettingsStore.Status = .idle
 
     var body: some View {
         BandStatusContent(
@@ -74,6 +76,13 @@ struct DemoView: View {
                 alarms.removeAll { $0.id == id }
                 alarmStatus = .sent(at: Date())
             },
+            bandSettings: bandSettings,
+            bandSettingsStatus: bandSettingsStatus,
+            onChangeBandSettings: { new in
+                bandSettings = new
+                bandSettingsStatus = .sent(at: Date())
+            },
+            onSendAllBandSettings: { bandSettingsStatus = .sent(at: Date()) },
             onExitDemo: onExit
         )
     }

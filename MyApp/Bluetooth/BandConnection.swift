@@ -206,6 +206,12 @@ final class BandConnection: NSObject {
         await sendAndWait(packets, to: WenaGATT.controlCharacteristic)
     }
 
+    /// Sends band settings packets (built by `WenaSettings`) to the control characteristic 1514,
+    /// in order. Returns nil on success, otherwise an error message.
+    func sendSettings(_ packets: [Data]) async -> String? {
+        await sendAndWait(packets, to: WenaGATT.controlCharacteristic)
+    }
+
     /// Sends the calendar list (built by `WenaCalendar.packets(for:)`) to characteristic 4002,
     /// one packet per event, in order. Returns nil on success, otherwise an error message.
     func sendCalendar(_ packets: [Data]) async -> String? {

@@ -15,6 +15,7 @@ final class AppServices {
     let findPhone = FindPhone()
     let calendarSync = CalendarSync()
     let alarmStore = AlarmStore()
+    let bandSettings = BandSettingsStore()
 
     /// Called once, at launch.
     func start() {

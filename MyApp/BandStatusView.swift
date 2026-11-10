@@ -17,6 +17,7 @@ struct BandStatusView: View {
     private var findPhone: FindPhone { services.findPhone }
     private var calendarSync: CalendarSync { services.calendarSync }
     private var alarmStore: AlarmStore { services.alarmStore }
+    private var bandSettings: BandSettingsStore { services.bandSettings }
     /// The "Show calendar on band" switch.
     @AppStorage(CalendarSync.enabledKey) private var showCalendar = false
     /// Demo mode (made-up data, no band). Not saved: the app always starts live.
@@ -121,6 +122,10 @@ struct BandStatusView: View {
             onSaveAlarm: { alarm in Task { await alarmStore.save(alarm, using: connection) } },
             onToggleAlarm: { id, isOn in Task { await alarmStore.setOn(isOn, for: id, using: connection) } },
             onDeleteAlarm: { id in Task { await alarmStore.delete(id, using: connection) } },
+            bandSettings: bandSettings.settings,
+            bandSettingsStatus: bandSettings.status,
+            onChangeBandSettings: { new in Task { await bandSettings.update(new, using: connection) } },
+            onSendAllBandSettings: { Task { await bandSettings.sendAll(using: connection) } },
             onStartDemo: { isDemo = true }
         )
     }
@@ -131,6 +136,9 @@ struct BandStatusView: View {
             try? await Task.sleep(for: .seconds(1))
             // Alarm changes made while the band was away go first (they were user actions).
             if let outcome = await alarmStore.sendIfPending(using: connection) {
+                connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
+            }
+            if let outcome = await bandSettings.sendIfPending(using: connection) {
                 connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
             }
             await autoSync.runIfDue(connection: connection, weather: weatherSync)
@@ -194,6 +202,10 @@ struct BandStatusContent: View {
     var onSaveAlarm: (BandAlarm) -> Void = { _ in }
     var onToggleAlarm: (BandAlarm.ID, Bool) -> Void = { _, _ in }
     var onDeleteAlarm: (BandAlarm.ID) -> Void = { _ in }
+    var bandSettings = BandSettings()
+    var bandSettingsStatus: BandSettingsStore.Status = .idle
+    var onChangeBandSettings: (BandSettings) -> Void = { _ in }
+    var onSendAllBandSettings: () -> Void = {}
     /// Shown as "Try the demo" when there's no band to talk to (nil hides it).
     var onStartDemo: (() -> Void)?
     /// Demo mode only: shows the demo banner with an Exit button.
@@ -283,6 +295,17 @@ struct BandStatusContent: View {
                         Text("Alarms")
                     } footer: {
                         Text("Vibrating alarms on the band, up to 9. Changes are sent straight away and replace all alarms on the band.")
+                    }
+
+                    Section {
+                        NavigationLink {
+                            BandSettingsView(settings: bandSettings, status: bandSettingsStatus, isBusy: isBusy,
+                                             onChange: onChangeBandSettings, onSendAll: onSendAllBandSettings)
+                        } label: {
+                            Label("Band settings", systemImage: "slider.horizontal.3")
+                        }
+                    } footer: {
+                        Text("Vibration, display, home screen, button, step goal and quiet times.")
                     }
 
                     Section {

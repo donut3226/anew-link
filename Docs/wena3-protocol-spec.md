@@ -387,16 +387,16 @@ All writes were ATT Write Requests (with response), one at a time, about 60 ms a
 |---|---|---|
 | 1-3 | `06 00 02 7F 00 06 1E 01 00.. 02 00..`, `06 03 ..`, `06 06 ..` | Alarms, layout as section 9. Slot 0 on, every day (`7F`), no smart wake, 06:30; slots 1-8 empty. **Note: this replaced whatever alarms Anew Link had sent.** |
 | 4 | `08 00 00` | Vibration: normal (Sony's "Medium"), smart vibration off (Sony's "Stop vibrating at rest" off). Matches |
-| 5 | `09 00` | **New opcode, not in Gadgetbridge.** Most likely the disconnection alert (owner has it off). Layout when on (seconds?) **UNKNOWN** |
+| 5 | `09 00` | **New opcode, not in Gadgetbridge: disconnection alert.** One byte: `00` off, otherwise the delay in 5-second steps (see 15.5) |
 | 6 | `10 xx xx xx xx` | Set time, as section 4 |
 | 7 | `11 0B 00` | Time zone +11:00, as section 4 |
 | 8 | `12 01 01` | Notifications on, calendar on. **Sony's own app sends this on every rewrite**, see 15.4 |
 | 9 | `14 00 00 00 06 00` | Do not disturb off, 00:00-06:00 |
-| 10 | `15 00 00 00 06 00` | Auto power off: off, 00:00-06:00. Sony's screen showed 22:00-08:00, so when a switch is off the app seems to send placeholder times. **Check before relying on the time fields** |
+| 10 | `15 00 00 00 06 00` | Auto power off: off, 00:00-06:00. Sony's screen showed 22:00-08:00: the rewrite sent placeholder times, but the settings screen itself sends the real ones (`15 01 16 00 08 00` = on, 22:00-08:00, see 15.5) |
 | 11 | `16 00` | Day start 0:00. Matches |
 | 12 | `17 01 70 17 00 00` | Goal notification on, 6000 steps (int32). Matches |
-| 13 | `18 01 03 07 04 05 02 06` | Status page order, 7 ids |
-| 14 | `19 07 02 01 03 09 08 04 06 05 00` | Menu (tool screen) order, 10 ids |
+| 13 | `18 01 03 07 04 05 02 06` | Status page order, 7 ids (table in 15.5) |
+| 14 | `19 07 02 01 03 09 08 04 06 05 00` | Menu (tool screen) order, 10 ids (table in 15.5) |
 | 15 | `1A 00 01 00 01 00 00 07` | Display: normal font, left hand, English, raise to wake on, normal design, no weather in status bar, 7 s. **Every field matches** Sony's screen, so the section 9 layout is confirmed |
 | 16 | `1B 00 0E 00 0C 00 0A` | Home icons left, centre, right = Stress & Recovery, Heart Rate, Steps. So on the wire each icon is `00` then the id: `0x0E` stress, `0x0C` heart rate, `0x0A` steps |
 | 17 | `1C 07 00 06 00` | Long press = weather screen (`07 00`), double press = timer screen (`06 00`). Matches, and these are the **same action codes as the Head Linkage table in section 12** |
@@ -409,7 +409,7 @@ All writes were ATT Write Requests (with response), one at a time, about 60 ms a
 
 Missing from Sony's rewrite: `0x21` camera app type (Xperia only), so iPhone owners never need it.
 
-Status page and menu ids are not mapped yet. The menu list contains `07` (weather) and `03` (find phone), which match the action codes, so the menu ids may share the action table. Map them by changing one item in Sony's app, capturing again and comparing.
+Status page, menu, home icon and button ids are mapped in 15.5.
 
 ### 15.3 Notification app list (new, handle `0x102B`)
 
@@ -417,7 +417,7 @@ This is how the band knows which iPhone apps to show, with what LED colour and v
 
 - **Framing:** each write is `[fragment number][byte count][up to 18 bytes]`, so a write is at most 20 bytes. A record longer than 18 bytes continues in fragment `01`. A record of exactly 18 bytes is followed by an empty `01 00`.
 - **Record:** kind (`00` app, `01` phone call), name length, name in UTF-8 (the app's display name as iOS shows it, for example `Gmail`, `WhatsApp`, `Proton Mail`; calls use `phone`), then 5 setting bytes, then the list position as int16 (counting down to 0, call is 0).
-- **The 5 setting bytes** follow the same order as the notification packet fields in section 8, which suggests LED colour, vibration flags (always `03` here), vibration pattern, vibration count, enabled. For example `07 03 02 01 01` for most apps, `03 03 03 02 01` for WhatsApp, `07 03 01 00 01` for calls. Which colour and pattern each number means is **UNVERIFIED**: compare with Sony's per-app screens, or change one value and capture again.
+- **The 5 setting bytes:** LED colour, vibration flags (always `03` here), vibration pattern, vibration count, notifications on (`01`). Same order and same values as the notification packet in section 8. For example `07 03 02 01 01` = white, Basic, once (Gmail as set in Sony's app), `03 03 03 02 01` = green, Rapid, twice (WhatsApp), `07 03 01 00 01` for calls (count `00` = repeat). Colour, pattern and count tables are in 15.5.
 - **End of list:** a single `04` on the same characteristic.
 - The band seems to match ANCS notifications to this list by app name. Whether an app missing from the list is shown or hidden is **UNVERIFIED** (Sony's screen says only listed apps reach the band).
 
@@ -428,3 +428,65 @@ This is how the band knows which iPhone apps to show, with what LED colour and v
 - Anew Link can now copy its first settings write from these exact bytes, so nothing visibly changes on the band.
 - Sony's "Rewrite settings" also rewrites alarms, Head Linkage and the notification list. Any owner who still uses Sony's app will overwrite Anew Link's alarms that way.
 - Sony's app also ran a normal activity sync (section 7 requests, the same layout) and sent calendar entries as in section 5. In Sony's writes the title went in a separate write after the 14-byte header.
+
+### 15.5 One setting at a time (second capture, 10 Nov 2026)
+
+The owner agreed to treat the band as a test device. We changed one setting at a time in Sony's app (driven through iPhone Mirroring) while PacketLogger recorded, then put every setting back. All the writes below went to 1514 unless stated. Each change is sent the moment it is picked, without a separate Save, except the per-app notification screen.
+
+**Button actions** (`0x1C`: long press 2 bytes, then double press 2 bytes). Same codes as Head Linkage (section 12):
+
+| Bytes | Action | Bytes | Action |
+|---|---|---|---|
+| `00 00` | none | `06 00` | timer screen |
+| `01 00` | Alexa mic on | `07 00` | weather screen |
+| `02 00` | Qrio Lock screen | `0F 00` | Riiiver |
+| `02 01` | Qrio Lock unlock | `10 00` | music screen |
+| `02 02` | Qrio Lock lock | `10 01` | music play or pause |
+| `03 00` | find your phone screen | `10 02` | music next |
+| `04 00` | NFC on/off | `10 03` | music previous |
+| `05 00` | do not disturb on/off | | |
+
+Sony's app offers exactly these 15 for both presses.
+
+**Home screen icons** (`0x1B`: three slots, each `00` then the id; Sony re-sends `0x1A` just before every `0x1B`):
+
+| Id | Icon | Id | Icon |
+|---|---|---|---|
+| `01` | timer | `0D` | VO2 Max |
+| `02` | alarm | `0E` | Stress & Recovery |
+| `03` | clock | `0F` | Body Energy |
+| `04` | Alexa | `10` | Suica balance |
+| `06` | Qrio Lock | `11` | Calorie |
+| `07` | Edy balance | `12` | Riiiver |
+| `08` | presence of unread notifications (seen once, during a reconnect) | `13` | music |
+| `09` | schedule | `14` | camera |
+| `0A` | Steps | `0B` | Sleep |
+| `0C` | Heart Rate | | |
+
+Each slot's list leaves out the icons the other two slots already use.
+
+**Menu (tool screen) ids** (`0x19`, matched by position against Sony's list): `07` weather, `02` alarm, `01` timer, `03` find your phone, `09` camera, `08` music, `04` Alexa, `06` Qrio Lock, `05` payment, `00` settings.
+
+**Status page ids** (`0x18`, matched by position): `01` Steps, `03` Heart Rate, `07` Calorie, `04` VO2 Max, `05` Stress & Recovery, `02` Sleep, `06` Body Energy.
+
+**Vibration** (`0x08`): `08 00 00` medium, `08 01 00` weak, `08 02 00` strong; second byte `01` = "stop vibrating at rest" on. Matches section 9.
+
+**Disconnection alert** (`0x09`, new): `09 00` off, `09 01` on with 5 seconds, `09 18` with 2 minutes. So the byte is the delay in 5-second steps (`0x18` = 24 x 5 = 120 s), and 0 means off.
+
+**Auto power off** (`0x15`): `15 01 16 00 08 00` = on, 22:00 to 08:00; `15 00 16 00 08 00` = off with the same times. **Do not disturb** (`0x14`): `14 01 00 00 06 00` = on, 00:00 to 06:00. Both confirm the section 9 layout.
+
+**Notification master switch:** Sony's Off/On switch sends `12 00 01` (notifications off, calendar on) and `12 01 01` when switched back on. So the first byte after `0x12` is notifications and the second is calendar, as in section 9. Notifications came back after `12 01 01`.
+
+**Per-app notification values** (record bytes in 15.3, and the same values in the section 8 notification packet):
+- LED colour: `01` red, `02` yellow, `03` green, `04` cyan, `05` blue, `06` purple, `07` white.
+- Vibration pattern: `00` nothing, `02` basic, `03` rapid, `04` triple, `05` step up, `06` step down, `07` warning, `08` siren, `0A` double. Short is `01` or `09` (its test write was missed). Calls use `01`.
+- Vibration count: `00` repeat, `01` once, `02` twice, `03` 3 times (4 times presumably `04`).
+- **Save** re-sends only the changed app's record on `0x102B` (for example `00 0E 00 05 Gmail 01 03 08 03 01 04 00`), after a lone `01` on 4002.
+
+**"Try this notification pattern on wena"** writes a section 8 notification packet to 4002: `00`, colour, `03`, pattern, count, title length `0x14`, message length `0x13`, flags `01`, kind `00`, action length `00`, a notification id (int32, counting up), a timestamp, then the texts "(Notification title)" and "(Notification text)". This confirms the section 8 layout on our band.
+
+**ANCS seen on the wire:** the same capture shows iOS sending ANCS Notification Source and Data Source packets to the band (the band asks for the app identifier, title and message). So the band matches notifications to its app list using ANCS data. Their content is private and not recorded.
+
+**Activity settings** (birth date, gender, height, weight, resting heart rate, step goal) were viewed but not changed. The resting heart rate does not appear in any packet seen so far.
+
+**Opening Sony's app** sends the full notification list, `12 01 01`, `04`, time, time zone, the calendar and a short activity sync, every time.

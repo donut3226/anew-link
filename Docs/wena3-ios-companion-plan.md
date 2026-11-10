@@ -291,7 +291,7 @@ The owner's current band settings, to send unchanged the first time Anew Link wr
 **Next steps, in order:**
 1. Test alarms on the band: one alarm 2-3 minutes ahead first, then repeat days and smart wake-up.
 2. Band settings one packet at a time, starting from the exact bytes Sony sent (spec 15.2), so nothing changes on the band: vibration, step goal, display, home icons, buttons. Never `0x12` unless the owner lifts that rule.
-3. Map the remaining ids (status pages, menu, notification colours and patterns) by changing one thing in Sony's app and capturing again.
+3. Done 10 Nov 2026 (spec 15.5): button, home icon, menu, status page, colour, pattern and count ids, plus the disconnect alert, all mapped from a second capture. Still open: decoding the other activity types (VO2, stress, body energy, calories, sleep) against Sony's dashboard values, and the vibration pattern "Short" (`01` or `09`).
 4. Release: external TestFlight testers (other Wena owners, needs a short beta review), then the App Store listing (`Docs/release-checklist.md`).
 
 iOS background refresh as a backup was dropped: the band's own 30-minute tick and 4-hourly weather request already wake the app.

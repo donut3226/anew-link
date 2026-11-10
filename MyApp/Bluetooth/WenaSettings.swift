@@ -117,6 +117,35 @@ nonisolated struct BodyDetails: Codable, Equatable {
     var weightKg = 65.0
 }
 
+nonisolated extension BodyDetails {
+    /// Values read from Apple Health, laid over `base`. Anything Health doesn't have keeps the
+    /// base value; out-of-range values are ignored. Nil if Health had nothing usable.
+    static func fromHealth(base: BodyDetails?, heightCm: Double?, weightKg: Double?,
+                           birth: DateComponents?, isMale: Bool?) -> BodyDetails? {
+        var body = base ?? BodyDetails()
+        var found = false
+        if let heightCm, (100...230).contains(heightCm) {
+            body.heightCm = heightCm.rounded()
+            found = true
+        }
+        if let weightKg, (30...200).contains(weightKg) {
+            body.weightKg = (weightKg * 2).rounded() / 2      // the screen steps in 0.5 kg
+            found = true
+        }
+        if let year = birth?.year, let month = birth?.month, let day = birth?.day, (1900...2100).contains(year) {
+            body.birthYear = year
+            body.birthMonth = month
+            body.birthDay = day
+            found = true
+        }
+        if let isMale {
+            body.sex = isMale ? .male : .female
+            found = true
+        }
+        return found ? body : nil
+    }
+}
+
 /// Status page ids (`0x18`, spec 15.5).
 nonisolated enum StatusPage: UInt8, Codable, CaseIterable, Identifiable {
     case steps = 0x01, sleep = 0x02, heartRate = 0x03, vo2Max = 0x04, stress = 0x05, bodyEnergy = 0x06, calorie = 0x07

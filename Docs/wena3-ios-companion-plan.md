@@ -251,7 +251,7 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 | Notifications and calendar master switch (`0x12`) | `12 01 01` sent after every notification list write, as Sony does (owner's OK 10 Nov 2026) | Never `00` in either field |
 | Activity history: steps, heart rate | Done, saved to Apple Health | - |
 | Sleep, calories, VO2 Max, stress, body energy | Decoded 10 Nov 2026 from our captures (spec 7.1): VO2 Max saved to Apple Health; body energy, stress and calories shown after a manual sync | Sleep kinds need a morning sync's raw stream (debug copy button); calories' unit needs comparing with the band's Calorie screen before saving to Health |
-| Body details (birth date, height, weight, gender) | Built 10 Nov 2026: entered by hand in Band settings, sent only once entered | `01` = male confirmed; female `00` is a guess; reading the values from Apple Health needs the owner's OK to add Health read access |
+| Body details (birth date, height, weight, gender) | Built 10 Nov 2026: entered by hand in Band settings, sent only once entered | `01` = male confirmed; female `00` is a guess; "Fill in from Apple Health" reads height, weight, birth date and sex (built 10 Nov 2026, owner's OK) |
 | Pairing a new or reset band | Not built | Design in plan 14; needs a test on a stuck band |
 | Rewrite settings | Done ("Send all settings") | - |
 | Watch head (Head Linkage) | Not built | Only for WIRED/Seiko heads, out of scope |

@@ -2,7 +2,8 @@ import Foundation
 import HealthKit
 import Observation
 
-/// Saves band steps, heart rate and VO2 Max to Apple Health. Write-only: it never reads Health data.
+/// Saves band steps, heart rate and VO2 Max to Apple Health. The only reads are height, weight,
+/// birth date and sex, and only when the user taps "Fill in from Apple Health" for body details.
 @Observable
 final class HealthSync {
 
@@ -83,6 +84,34 @@ final class HealthSync {
             status = .failed("Couldn't save to Health. \(error.localizedDescription)")
             return false
         }
+    }
+
+    // MARK: - Reading body details (only when the user taps "Fill in from Apple Health")
+
+    /// Asks to read height, weight, birth date and sex (the only Health data the app ever reads),
+    /// then returns the newest values. Values Health doesn't have, or that weren't allowed, are nil.
+    func readBodyDetails() async -> (heightCm: Double?, weightKg: Double?, birth: DateComponents?, isMale: Bool?) {
+        guard HKHealthStore.isHealthDataAvailable() else { return (nil, nil, nil, nil) }
+        let height = HKQuantityType(.height), weight = HKQuantityType(.bodyMass)
+        let birth = HKCharacteristicType(.dateOfBirth), sex = HKCharacteristicType(.biologicalSex)
+        try? await store.requestAuthorization(toShare: [], read: [height, weight, birth, sex])
+        let heightCm = await latest(height)?.doubleValue(for: .meterUnit(with: .centi))
+        let weightKg = await latest(weight)?.doubleValue(for: .gramUnit(with: .kilo))
+        let birthDate = try? store.dateOfBirthComponents()
+        let isMale: Bool? = switch (try? store.biologicalSex())?.biologicalSex {
+        case .male: true
+        case .female: false
+        default: nil
+        }
+        return (heightCm, weightKg, birthDate, isMale)
+    }
+
+    private func latest(_ type: HKQuantityType) async -> HKQuantity? {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: type)],
+            sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)],
+            limit: 1)
+        return try? await descriptor.result(for: store).first?.quantity
     }
 
     private static func type(for kind: HealthRecord.Kind) -> HKQuantityType {

@@ -143,6 +143,7 @@ struct BandStatusView: View {
                 }
             },
             onTestVibration: { Task { await bandSettings.testVibration(using: connection) } },
+            onFillBodyFromHealth: { Task { await bandSettings.fillBodyFromHealth(healthSync, using: connection) } },
             notificationApps: notificationApps.apps,
             notificationStatus: notificationApps.status,
             notificationListFound: connection.state != .connected || connection.notificationListUUID != nil,
@@ -238,6 +239,7 @@ struct BandStatusContent: View {
     var onChangeBandSettings: (BandSettings) -> Void = { _ in }
     var onSendAllBandSettings: () -> Void = {}
     var onTestVibration: () -> Void = {}
+    var onFillBodyFromHealth: () -> Void = {}
     var notificationApps: [NotifyApp] = WenaNotificationList.defaultList()
     var notificationStatus: NotificationAppsStore.Status = .idle
     var notificationListFound = true
@@ -346,7 +348,8 @@ struct BandStatusContent: View {
                         NavigationLink {
                             BandSettingsView(settings: bandSettings, status: bandSettingsStatus, isBusy: isBusy,
                                              onChange: onChangeBandSettings, onSendAll: onSendAllBandSettings,
-                                             onTestVibration: onTestVibration)
+                                             onTestVibration: onTestVibration,
+                                             onFillBodyFromHealth: onFillBodyFromHealth)
                         } label: {
                             Label("Band settings", systemImage: "slider.horizontal.3")
                         }

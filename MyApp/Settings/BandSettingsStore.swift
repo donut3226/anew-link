@@ -84,6 +84,19 @@ final class BandSettingsStore {
         }
     }
 
+    /// Fills body details from Apple Health (a user action) and sends them.
+    func fillBodyFromHealth(_ health: HealthSync, using connection: BandConnection) async {
+        let read = await health.readBodyDetails()
+        guard let body = BodyDetails.fromHealth(base: settings.body, heightCm: read.heightCm, weightKg: read.weightKg,
+                                                birth: read.birth, isMale: read.isMale) else {
+            status = .failed("Apple Health had no height, weight, birth date or sex for Anew Link. Check Health > Profile > Apps > Anew Link.")
+            return
+        }
+        var new = settings
+        new.body = body
+        await update(new, using: connection)
+    }
+
     /// Find my band: a strong test notification (siren, 3 times) so the band buzzes and lights up.
     /// Returns nil on success, otherwise a message.
     @discardableResult

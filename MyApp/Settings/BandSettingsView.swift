@@ -11,6 +11,7 @@ struct BandSettingsView: View {
     let onChange: (BandSettings) -> Void
     var onSendAll: () -> Void = {}
     var onTestVibration: () -> Void = {}
+    var onFillBodyFromHealth: () -> Void = {}
 
     var body: some View {
         Form {
@@ -114,10 +115,12 @@ struct BandSettingsView: View {
                         onChange(new)
                     }
                 }
+                Button("Fill in from Apple Health", systemImage: "heart.text.square", action: onFillBodyFromHealth)
+                    .disabled(isBusy)
             } header: {
                 Text("Body details")
             } footer: {
-                Text("Used by the band to estimate calories, body energy and VO2 Max. Kept on this phone and sent only to the band.")
+                Text("Used by the band to estimate calories, body energy and VO2 Max. Kept on this phone and sent only to the band. Apple Health is read only when you tap Fill in.")
             }
 
             Section {

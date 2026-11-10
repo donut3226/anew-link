@@ -175,3 +175,24 @@ struct WenaBodyDetailsTests {
         #expect(WenaSettings.allPackets(s).last?.first == 0x1D)
     }
 }
+
+/// Filling body details from Apple Health values.
+struct BodyFromHealthTests {
+
+    @Test func healthValuesOverlayTheBase() {
+        let base = BodyDetails(sex: .female, birthYear: 1990, birthMonth: 1, birthDay: 1, heightCm: 170, weightKg: 65)
+        let body = BodyDetails.fromHealth(base: base, heightCm: 181.4, weightKg: 77.3,
+                                          birth: DateComponents(year: 1984, month: 3, day: 9), isMale: true)
+        #expect(body == BodyDetails(sex: .male, birthYear: 1984, birthMonth: 3, birthDay: 9, heightCm: 181, weightKg: 77.5))
+    }
+
+    @Test func missingValuesKeepTheBase() {
+        let body = BodyDetails.fromHealth(base: nil, heightCm: nil, weightKg: 70, birth: nil, isMale: nil)
+        #expect(body?.weightKg == 70)
+        #expect(body?.heightCm == BodyDetails().heightCm)
+    }
+
+    @Test func nothingUsableIsNil() {
+        #expect(BodyDetails.fromHealth(base: nil, heightCm: 5, weightKg: nil, birth: nil, isMale: nil) == nil)
+    }
+}

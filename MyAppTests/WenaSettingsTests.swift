@@ -156,8 +156,15 @@ struct WenaPageOrderTests {
 struct WenaBodyDetailsTests {
 
     @Test func layoutHeightThenWeightTimesTen() {
-        let body = BodyDetails(sex: .female, birthYear: 1985, birthMonth: 7, birthDay: 21, heightCm: 172, weightKg: 68.5)
+        let body = BodyDetails(sex: .male, birthYear: 1985, birthMonth: 7, birthDay: 21, heightCm: 172, weightKg: 68.5)
         #expect([UInt8](WenaSettings.bodyDetails(body)) == [0x1D, 0x01, 0xC1, 0x07, 7, 21, 0xB8, 0x06, 0xAD, 0x02])
+    }
+
+    /// Sony's capture sent `01` while Sony's screen showed Male (10 Nov 2026).
+    @Test func sexByteMaleIsOne() {
+        #expect(BodyDetails.Sex.male.rawValue == 0x01)
+        #expect([UInt8](WenaSettings.bodyDetails(BodyDetails(sex: .male)))[1] == 0x01)
+        #expect([UInt8](WenaSettings.bodyDetails(BodyDetails(sex: .female)))[1] == 0x00)
     }
 
     @Test func notSentUntilEntered() {

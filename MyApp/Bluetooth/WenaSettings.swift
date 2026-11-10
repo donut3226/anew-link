@@ -101,10 +101,10 @@ nonisolated struct BandSettings: Codable, Equatable {
 
 /// Body details for the band's calorie and fitness estimates (`0x1D`, spec 4 and 15.2).
 nonisolated struct BodyDetails: Codable, Equatable {
-    /// The band's sex byte. Sony's capture had `01`; which value means which is **UNVERIFIED**
-    /// (see `Sex`), so the labels follow the order Sony's Japanese app most likely used.
+    /// The band's sex byte. `01` = male is confirmed: Sony's capture sent `01` while Sony's
+    /// Activity settings showed Male. `00` for female is **UNVERIFIED** (it might be `02`).
     enum Sex: UInt8, Codable, CaseIterable, Identifiable {
-        case male = 0, female = 1
+        case female = 0, male = 1
         var id: UInt8 { rawValue }
         var label: String { self == .male ? "Male" : "Female" }
     }

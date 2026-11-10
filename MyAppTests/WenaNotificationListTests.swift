@@ -90,3 +90,10 @@ struct WenaNotificationListTests {
         #expect(Array(packet.prefix(5)) == [0x00, 0x01, 0x03, 0x08, 0x03])
     }
 }
+
+struct NotificationTogglesTests {
+    /// Only ever both on, byte for byte what Sony's app sends (spec 15.4).
+    @Test func alwaysBothOn() {
+        #expect([UInt8](WenaNotificationList.notificationsAndCalendarOn) == [0x12, 0x01, 0x01])
+    }
+}

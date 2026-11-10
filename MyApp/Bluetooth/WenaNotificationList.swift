@@ -89,6 +89,9 @@ nonisolated enum WenaNotificationList {
     static let fragmentSize = 18
     /// The lone byte that ends the list.
     static let endOfList = Data([0x04])
+    /// Sent to 1514 after the list, exactly as Sony's app does: notifications on, calendar on
+    /// (spec 15.4). Only this exact packet; a `00` in either field is never sent.
+    static let notificationsAndCalendarOn = Data([0x12, 0x01, 0x01])
 
     /// Common iPhone apps, with their names as iOS shows them.
     static let presets = [

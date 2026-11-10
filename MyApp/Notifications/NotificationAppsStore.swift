@@ -77,6 +77,11 @@ final class NotificationAppsStore {
             status = .failed(error)
             return false
         }
+        // Then `12 01 01` on 1514, as Sony's app does after every list write (owner's OK, 10 Nov 2026).
+        if let error = await connection.sendSettings([WenaNotificationList.notificationsAndCalendarOn]) {
+            status = .failed(error)
+            return false
+        }
         pending = false
         defaults.set(true, forKey: Self.sentKey)
         status = .sent(at: Date())

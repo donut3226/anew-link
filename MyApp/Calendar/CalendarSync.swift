@@ -12,6 +12,9 @@ final class CalendarSync {
 
     /// The settings key for the "Show calendar on band" switch (also used by `@AppStorage`).
     static let enabledKey = "showCalendarOnBand"
+    /// The settings key for the calendars the user switched off (identifiers). An exclusion list,
+    /// so a calendar added later is shown until switched off.
+    static let excludedKey = "calendarSync.excludedCalendars"
     /// How far ahead to look.
     static let lookAhead: TimeInterval = 7 * 24 * 60 * 60
 
@@ -72,6 +75,35 @@ final class CalendarSync {
         #endif
     }
 
+    // MARK: - Choosing calendars
+
+    /// The phone's calendars, with whether each one goes to the band. Empty without access.
+    var choices: [CalendarChoice] {
+        guard hasAccess else { return [] }
+        let excluded = Self.excluded
+        return store.calendars(for: .event)
+            .map { CalendarChoice(id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "",
+                                  isIncluded: !excluded.contains($0.calendarIdentifier)) }
+            .sorted { ($0.account, $0.title) < ($1.account, $1.title) }
+    }
+
+    /// The user ticked or unticked a calendar: save it and send the calendar again (a user action).
+    func setIncluded(_ included: Bool, calendarID: String, connection: BandConnection) async {
+        Self.excluded = CalendarChoice.updatedExclusions(Self.excluded, id: calendarID, included: included)
+        refreshTick += 1
+        if isEnabled, hasAccess {
+            _ = await send(using: connection)
+        }
+    }
+
+    /// Bumped on every change so SwiftUI redraws `choices` (which reads EventKit, not stored state).
+    private(set) var refreshTick = 0
+
+    private static var excluded: Set<String> {
+        get { Set(UserDefaults.standard.stringArray(forKey: excludedKey) ?? []) }
+        set { UserDefaults.standard.set(newValue.sorted(), forKey: excludedKey) }
+    }
+
     // MARK: - Private
 
     private func send(using connection: BandConnection) async -> String {
@@ -97,8 +129,12 @@ final class CalendarSync {
     /// Events that haven't ended yet, from now to 7 days ahead, soonest first.
     private func upcomingEvents() -> [BandCalendarEvent] {
         let now = Date()
+        let excluded = Self.excluded
+        let calendars = store.calendars(for: .event).filter { !excluded.contains($0.calendarIdentifier) }
+        // An empty list would mean "all calendars" to EventKit, so no calendars means no events.
+        guard !calendars.isEmpty else { return [] }
         let predicate = store.predicateForEvents(withStart: now, end: now.addingTimeInterval(Self.lookAhead),
-                                                 calendars: nil)
+                                                 calendars: calendars)
         return store.events(matching: predicate)
             .filter { $0.endDate > now }
             .sorted { $0.startDate < $1.startDate }
@@ -106,5 +142,18 @@ final class CalendarSync {
                 BandCalendarEvent(title: event.title ?? "", location: event.location ?? "",
                                   start: event.startDate, end: event.endDate, isAllDay: event.isAllDay)
             }
+    }
+}
+
+/// One of the phone's calendars, for the "Calendars" list.
+nonisolated struct CalendarChoice: Equatable, Identifiable {
+    let id: String
+    let title: String
+    let account: String
+    var isIncluded: Bool
+
+    /// The exclusion list after ticking (`included`) or unticking one calendar.
+    static func updatedExclusions(_ excluded: Set<String>, id: String, included: Bool) -> Set<String> {
+        included ? excluded.subtracting([id]) : excluded.union([id])
     }
 }

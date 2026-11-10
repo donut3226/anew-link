@@ -30,6 +30,11 @@ private struct DemoScreen: View {
             switch name {
             case "notifications":
                 NotificationAppsView(apps: apps, status: .sent(at: Date()), onChange: { apps = WenaNotificationList.ordered($0) })
+            case "calendars":
+                CalendarChoicesView(choices: [
+                    CalendarChoice(id: "home", title: "Home", account: "iCloud", isIncluded: true),
+                    CalendarChoice(id: "work", title: "Work", account: "iCloud", isIncluded: false),
+                ], onToggle: { _, _ in })
             case "statusPages":
                 OrderEditor(title: "Status pages", items: settings.statusOrder, label: \.label) { settings.statusOrder = $0 }
             default:

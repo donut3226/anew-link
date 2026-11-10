@@ -117,6 +117,8 @@ struct BandStatusView: View {
             calendar: calendarSync.status,
             calendarPermissionDenied: calendarSync.permissionDenied,
             onSendTestCalendar: { Task { await calendarSync.sendTest(using: connection) } },
+            calendarChoices: { _ = calendarSync.refreshTick; return calendarSync.choices }(),
+            onToggleCalendar: { id, on in Task { await calendarSync.setIncluded(on, calendarID: id, connection: connection) } },
             alarms: alarmStore.alarms,
             alarmStatus: alarmStore.status,
             canAddAlarm: alarmStore.canAdd,
@@ -212,6 +214,8 @@ struct BandStatusContent: View {
     var calendar: CalendarSync.Status = .idle
     var calendarPermissionDenied = false
     var onSendTestCalendar: () -> Void = {}
+    var calendarChoices: [CalendarChoice] = []
+    var onToggleCalendar: (String, Bool) -> Void = { _, _ in }
     var alarms: [BandAlarm] = []
     var alarmStatus: AlarmStore.Status = .idle
     var canAddAlarm = true
@@ -296,6 +300,13 @@ struct BandStatusContent: View {
 
                     Section {
                         Toggle("Show calendar on band", isOn: showCalendar)
+                        if showCalendar.wrappedValue, !calendarChoices.isEmpty {
+                            NavigationLink {
+                                CalendarChoicesView(choices: calendarChoices, onToggle: onToggleCalendar)
+                            } label: {
+                                LabeledContent("Calendars", value: Self.calendarCountText(calendarChoices))
+                            }
+                        }
                         calendarRow
                     } header: {
                         Text("Calendar")
@@ -724,6 +735,11 @@ struct BandStatusContent: View {
     }
 
     /// "14:32 (2 min before sync)". If the band's clock is ahead, the sample can be "after" the sync.
+    static func calendarCountText(_ choices: [CalendarChoice]) -> String {
+        let on = choices.filter(\.isIncluded).count
+        return on == choices.count ? "All" : "\(on) of \(choices.count)"
+    }
+
     private static func newestSampleText(_ summary: ActivitySummary) -> String {
         guard let newest = summary.newestSampleAt, let minutes = summary.newestSampleMinutesAgo else {
             return "None"

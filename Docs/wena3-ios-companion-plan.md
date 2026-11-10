@@ -242,7 +242,7 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 |---|---|---|
 | Sync (time, battery, activity) | Done, automatic: time and weather when the band asks, activity every 2 h in the background | - |
 | Weather on the band | Done (Sony's weather service had already ended, so this is better than Sony now) | - |
-| Calendar on the band | Done, next 7 days | Choose which calendars |
+| Calendar on the band | Done, next 7 days; choose which calendars (built 10 Nov 2026) | - |
 | Alarms (9, repeat days, smart wake-up) | Done | Confirm repeat days and smart wake-up on the band |
 | Find my phone, song title | Done | - |
 | Vibration, display, home icons, button, step goal, day start, do not disturb, auto power off, disconnect alert | Done (settings screen, build 66/67), "Send all settings", "Feel it" test buzz | Confirm each on the band |

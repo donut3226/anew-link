@@ -21,6 +21,11 @@ struct DemoView: View {
     @State private var findPhone = false
     @State private var showCalendar = false
     @State private var lastActivitySave: Date?
+    @State private var calendarChoices = [
+        CalendarChoice(id: "home", title: "Home", account: "iCloud", isIncluded: true),
+        CalendarChoice(id: "work", title: "Work", account: "iCloud", isIncluded: true),
+        CalendarChoice(id: "holidays", title: "Holidays", account: "Subscribed", isIncluded: false),
+    ]
     @State private var alarms: [BandAlarm] = [
         BandAlarm(hour: 6, minute: 30, repeatDays: [2, 3, 4, 5, 6], smartWakeupMinutes: 10),
         BandAlarm(isOn: false, hour: 8, minute: 0, repeatDays: [1, 7]),
@@ -62,6 +67,10 @@ struct DemoView: View {
             findPhoneEnabled: $findPhone,
             showCalendar: $showCalendar,
             calendar: showCalendar ? .sent(count: 3, at: Date(), test: false) : .idle,
+            calendarChoices: calendarChoices,
+            onToggleCalendar: { id, on in
+                if let i = calendarChoices.firstIndex(where: { $0.id == id }) { calendarChoices[i].isIncluded = on }
+            },
             alarms: alarms,
             alarmStatus: alarmStatus,
             canAddAlarm: alarms.count < WenaAlarms.slotCount,

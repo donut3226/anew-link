@@ -16,6 +16,7 @@ final class AppServices {
     let calendarSync = CalendarSync()
     let alarmStore = AlarmStore()
     let bandSettings = BandSettingsStore()
+    let notificationApps = NotificationAppsStore()
 
     /// Called once, at launch.
     func start() {

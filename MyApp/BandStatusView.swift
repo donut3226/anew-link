@@ -18,6 +18,7 @@ struct BandStatusView: View {
     private var calendarSync: CalendarSync { services.calendarSync }
     private var alarmStore: AlarmStore { services.alarmStore }
     private var bandSettings: BandSettingsStore { services.bandSettings }
+    private var notificationApps: NotificationAppsStore { services.notificationApps }
     /// The "Show calendar on band" switch.
     @AppStorage(CalendarSync.enabledKey) private var showCalendar = false
     /// Demo mode (made-up data, no band). Not saved: the app always starts live.
@@ -125,8 +126,19 @@ struct BandStatusView: View {
             bandSettings: bandSettings.settings,
             bandSettingsStatus: bandSettings.status,
             onChangeBandSettings: { new in Task { await bandSettings.update(new, using: connection) } },
-            onSendAllBandSettings: { Task { await bandSettings.sendAll(using: connection) } },
+            onSendAllBandSettings: {
+                Task {
+                    await bandSettings.sendAll(using: connection)
+                    await notificationApps.sendAll(using: connection)
+                }
+            },
             onTestVibration: { Task { await bandSettings.testVibration(using: connection) } },
+            notificationApps: notificationApps.apps,
+            notificationStatus: notificationApps.status,
+            notificationListFound: connection.state != .connected || connection.notificationListUUID != nil,
+            notificationNeverSent: notificationApps.neverSent,
+            onChangeNotificationApps: { list in Task { await notificationApps.update(list, using: connection) } },
+            onTryNotification: { app in Task { await bandSettings.testVibration(using: connection, app: app) } },
             onStartDemo: { isDemo = true }
         )
     }
@@ -140,6 +152,9 @@ struct BandStatusView: View {
                 connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
             }
             if let outcome = await bandSettings.sendIfPending(using: connection) {
+                connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
+            }
+            if let outcome = await notificationApps.sendIfPending(using: connection) {
                 connection.events.add(BandEvent(date: Date(), kind: .info, detail: outcome))
             }
             await autoSync.runIfDue(connection: connection, weather: weatherSync)
@@ -208,6 +223,12 @@ struct BandStatusContent: View {
     var onChangeBandSettings: (BandSettings) -> Void = { _ in }
     var onSendAllBandSettings: () -> Void = {}
     var onTestVibration: () -> Void = {}
+    var notificationApps: [NotifyApp] = WenaNotificationList.defaultList()
+    var notificationStatus: NotificationAppsStore.Status = .idle
+    var notificationListFound = true
+    var notificationNeverSent = false
+    var onChangeNotificationApps: ([NotifyApp]) -> Void = { _ in }
+    var onTryNotification: (NotifyApp) -> Void = { _ in }
     /// Shown as "Try the demo" when there's no band to talk to (nil hides it).
     var onStartDemo: (() -> Void)?
     /// Demo mode only: shows the demo banner with an Exit button.
@@ -307,8 +328,15 @@ struct BandStatusContent: View {
                         } label: {
                             Label("Band settings", systemImage: "slider.horizontal.3")
                         }
+                        NavigationLink {
+                            NotificationAppsView(apps: notificationApps, status: notificationStatus, isBusy: isBusy,
+                                                 listFound: notificationListFound, neverSent: notificationNeverSent,
+                                                 onChange: onChangeNotificationApps, onTry: onTryNotification)
+                        } label: {
+                            Label("Notifications on the band", systemImage: "bell.badge")
+                        }
                     } footer: {
-                        Text("Vibration, display, home screen, button, step goal and quiet times.")
+                        Text("Vibration, display, home screen, button, step goal and quiet times, and which apps' notifications reach the band.")
                     }
 
                     Section {

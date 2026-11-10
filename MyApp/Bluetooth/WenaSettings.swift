@@ -255,10 +255,13 @@ nonisolated enum WenaTestNotification {
 
     /// `00`, colour, `03`, pattern, count, title length, message length, flags `01`, kind `00`,
     /// action length `00`, notification id (int32), Wena timestamp (int32), title, message.
-    static func packet(id: Int32, date: Date) -> Data {
+    /// The colour, pattern and count default to white, basic, once; the notification list's
+    /// "Try it" button passes the app's own choices.
+    static func packet(id: Int32, date: Date, colour: UInt8 = white, pattern: UInt8 = basicPattern,
+                       count: UInt8 = 0x01, text: String = message) -> Data {
         let titleBytes = Array(title.utf8.prefix(31))
-        let messageBytes = Array(message.utf8.prefix(239))
-        var data = Data([0x00, white, 0x03, basicPattern, 0x01,
+        let messageBytes = Array(text.utf8.prefix(239))
+        var data = Data([0x00, colour, 0x03, pattern, count,
                          UInt8(titleBytes.count), UInt8(messageBytes.count), 0x01, 0x00, 0x00])
         withUnsafeBytes(of: id.littleEndian) { data.append(contentsOf: $0) }
         withUnsafeBytes(of: WenaPackets.wenaTimestamp(for: date).littleEndian) { data.append(contentsOf: $0) }

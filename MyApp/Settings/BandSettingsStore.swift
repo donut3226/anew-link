@@ -67,7 +67,8 @@ final class BandSettingsStore {
 
     /// Makes the band buzz once (a test notification), so the user can feel the strength.
     /// Only when connected and idle; nothing waits for later.
-    func testVibration(using connection: BandConnection) async {
+    /// `app` (from the notification list's "Try it") buzzes with that app's colour, pattern and count.
+    func testVibration(using connection: BandConnection, app: NotifyApp? = nil) async {
         guard connection.state == .connected, !connection.isSending, !connection.activity.inProgress else {
             status = .failed("Connect the band to feel the vibration.")
             return
@@ -76,7 +77,7 @@ final class BandSettingsStore {
         let id = Int32(clamping: defaults.integer(forKey: Self.testIdKey) + 1)
         defaults.set(Int(id), forKey: Self.testIdKey)
         status = .sending
-        if let error = await connection.sendTestNotification(WenaTestNotification.packet(id: id, date: Date())) {
+        if let error = await connection.sendTestNotification(Self.testPacket(id: id, app: app)) {
             status = .failed(error)
         } else {
             status = .buzzed(at: Date())
@@ -91,6 +92,15 @@ final class BandSettingsStore {
     }
 
     // MARK: - Private
+
+    private static func testPacket(id: Int32, app: NotifyApp?) -> Data {
+        guard let app else { return WenaTestNotification.packet(id: id, date: Date()) }
+        return WenaTestNotification.packet(id: id, date: Date(), colour: app.colour.rawValue,
+                                           // A test that repeats until dismissed would be annoying: buzz twice instead.
+                                           pattern: app.pattern.rawValue,
+                                           count: app.count == .repeating ? NotifyCount.twice.rawValue : app.count.rawValue,
+                                           text: "\(app.displayName) pattern")
+    }
 
     private func send(using connection: BandConnection) async -> Bool {
         guard connection.state == .connected, !connection.isSending, !connection.activity.inProgress else {

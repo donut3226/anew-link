@@ -28,6 +28,8 @@ struct DemoView: View {
     @State private var alarmStatus: AlarmStore.Status = .idle
     @State private var bandSettings = BandSettings()
     @State private var bandSettingsStatus: BandSettingsStore.Status = .idle
+    @State private var notificationApps = WenaNotificationList.defaultList()
+    @State private var notificationStatus: NotificationAppsStore.Status = .idle
 
     var body: some View {
         BandStatusContent(
@@ -84,6 +86,13 @@ struct DemoView: View {
             },
             onSendAllBandSettings: { bandSettingsStatus = .sent(at: Date()) },
             onTestVibration: { bandSettingsStatus = .buzzed(at: Date()) },
+            notificationApps: notificationApps,
+            notificationStatus: notificationStatus,
+            onChangeNotificationApps: { list in
+                notificationApps = WenaNotificationList.ordered(list)
+                notificationStatus = .sent(at: Date())
+            },
+            onTryNotification: { _ in bandSettingsStatus = .buzzed(at: Date()) },
             onExitDemo: onExit
         )
     }

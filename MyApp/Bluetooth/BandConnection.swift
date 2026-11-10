@@ -78,6 +78,8 @@ final class BandConnection: NSObject {
     private(set) var activity: ActivityStatus = .idle
     /// True while any packets are being written, so the screen can disable the send buttons.
     private(set) var isSending = false
+    /// The notification list characteristic in 1501 (next to 1514), once discovered (spec 15.3).
+    private(set) var notificationListUUID: CBUUID?
     /// True while subscribed to the band's requests on 4002.
     private(set) var isListeningForRequests = false
     /// What the band sent and how the connection behaved, saved across launches (diagnostics).
@@ -216,6 +218,15 @@ final class BandConnection: NSObject {
     /// so the band buzzes once. Returns nil on success, otherwise an error message.
     func sendTestNotification(_ packet: Data) async -> String? {
         await sendAndWait([packet], to: WenaGATT.notificationCharacteristic)
+    }
+
+    /// Sends the notification app list (built by `WenaNotificationList.packets(for:)`) to the
+    /// list characteristic found next to 1514. Returns nil on success, otherwise an error message.
+    func sendNotificationList(_ packets: [Data]) async -> String? {
+        guard let uuid = notificationListUUID else {
+            return "This band's notification list wasn't found. Tap Refresh and try again."
+        }
+        return await sendAndWait(packets, to: uuid)
     }
 
     /// Sends the calendar list (built by `WenaCalendar.packets(for:)`) to characteristic 4002,
@@ -602,11 +613,10 @@ extension BandConnection: CBPeripheralDelegate {
             fail("This device doesn't look like a Wena 3 band.")
             return
         }
-        // Discovering 1514 and 4002 only looks them up. Nothing is written until a send button is tapped.
-        peripheral.discoverCharacteristics(
-            [WenaGATT.infoCharacteristic, WenaGATT.stateCharacteristic, WenaGATT.controlCharacteristic],
-            for: common
-        )
+        // Discovering only looks characteristics up. Nothing is written until a send button is tapped.
+        // All of 1501 is discovered (nil), to find the notification list characteristic next to 1514,
+        // whose UUID isn't known yet (spec 15.1).
+        peripheral.discoverCharacteristics(nil, for: common)
         if let notification = peripheral.services?.first(where: { $0.uuid == WenaGATT.notificationService }) {
             peripheral.discoverCharacteristics([WenaGATT.notificationCharacteristic], for: notification)
         }
@@ -632,6 +642,13 @@ extension BandConnection: CBPeripheralDelegate {
         // The common service holds info and battery: once it's ready, we're connected.
         // (If 4002 isn't found, only the weather button fails, with a message.)
         guard service.uuid == WenaGATT.commonService else { return }
+        let found = service.characteristics ?? []
+        notificationListUUID = WenaGATT.notificationListCharacteristic(in: found.map {
+            WenaGATT.FoundCharacteristic(uuid: $0.uuid, writable: !$0.properties.isDisjoint(with: [.write, .writeWithoutResponse]))
+        })
+        events.add(BandEvent(date: Date(), kind: .info, detail: WenaGATT.describe(found.map {
+            WenaGATT.FoundCharacteristic(uuid: $0.uuid, writable: !$0.properties.isDisjoint(with: [.write, .writeWithoutResponse]))
+        }, list: notificationListUUID)))
         state = .connected
         readValues(from: peripheral)
     }

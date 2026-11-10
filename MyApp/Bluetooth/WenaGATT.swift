@@ -38,4 +38,40 @@ nonisolated enum WenaGATT {
 
     /// Characteristic 3002 (write requests, notify data stream): activity sync.
     static let activityCharacteristic = uuid("3002")
+
+    /// Characteristic 1503 (mode). Not used, but known, so it's never mistaken for the list.
+    static let modeCharacteristic = uuid("1503")
+
+    /// A characteristic found in service 1501, reduced to what the list search needs.
+    struct FoundCharacteristic: Equatable {
+        let uuid: CBUUID
+        let writable: Bool
+    }
+
+    /// The per-app notification list characteristic (spec 15.3): handle `0x102B` in our capture,
+    /// the next characteristic after 1514 in service 1501. Its UUID wasn't in the capture, so it's
+    /// found by position: the first writable characteristic after 1514 that isn't one we know.
+    /// `found` is in the order iOS discovered them (the band's handle order).
+    static func notificationListCharacteristic(in found: [FoundCharacteristic]) -> CBUUID? {
+        let known: Set<CBUUID> = [controlCharacteristic, infoCharacteristic, stateCharacteristic, modeCharacteristic]
+        guard let control = found.firstIndex(where: { $0.uuid == controlCharacteristic }) else { return nil }
+        return found[(control + 1)...].first { $0.writable && !known.contains($0.uuid) }?.uuid
+    }
+
+    /// A line for the event log listing 1501's characteristics, so the list UUID gets recorded.
+    static func describe(_ found: [FoundCharacteristic], list: CBUUID?) -> String {
+        let names = found.map { item in
+            let id = shortID(item.uuid) ?? item.uuid.uuidString
+            return item.writable ? "\(id) (write)" : id
+        }
+        let listText = list.map { "list = \(shortID($0) ?? $0.uuidString)" } ?? "list not found"
+        return "1501 characteristics: \(names.joined(separator: ", ")); \(listText)"
+    }
+
+    /// The 4-digit short id of a Wena UUID, or nil for other UUIDs.
+    static func shortID(_ uuid: CBUUID) -> String? {
+        let text = uuid.uuidString.uppercased()
+        guard text.count == 36, text.hasPrefix("4EFD"), text.hasSuffix("-A6C1-16F0-062F-F196CF496695") else { return nil }
+        return String(text.dropFirst(4).prefix(4))
+    }
 }

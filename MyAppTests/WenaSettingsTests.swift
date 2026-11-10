@@ -77,7 +77,7 @@ struct WenaSettingsTests {
     @Test func sendAllCoversEveryOpcodeOnce() {
         let opcodes = WenaSettings.allPackets(BandSettings()).compactMap(\.first)
         #expect(opcodes == [0x08, 0x09, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C])
-        // Never the packets we don't send.
+        // Never the packets we don't send (body details only once entered).
         #expect(!opcodes.contains(0x12))
         #expect(!opcodes.contains(0x1D))
         #expect(!opcodes.contains(0xC0))
@@ -149,5 +149,22 @@ struct WenaPageOrderTests {
         let decoded = try JSONDecoder().decode(BandSettings.self, from: data)
         #expect(decoded.stepGoal == 8000)
         #expect(decoded.statusOrder == StatusPage.sonyDefault)
+    }
+}
+
+/// Body details (`0x1D`): layout from spec 4, order confirmed by Sony's capture (15.2). Values made up.
+struct WenaBodyDetailsTests {
+
+    @Test func layoutHeightThenWeightTimesTen() {
+        let body = BodyDetails(sex: .female, birthYear: 1985, birthMonth: 7, birthDay: 21, heightCm: 172, weightKg: 68.5)
+        #expect([UInt8](WenaSettings.bodyDetails(body)) == [0x1D, 0x01, 0xC1, 0x07, 7, 21, 0xB8, 0x06, 0xAD, 0x02])
+    }
+
+    @Test func notSentUntilEntered() {
+        var s = BandSettings()
+        #expect(WenaSettings.packets(for: .bodyDetails, s).isEmpty)
+        #expect(!WenaSettings.allPackets(s).contains { $0.first == 0x1D })
+        s.body = BodyDetails()
+        #expect(WenaSettings.allPackets(s).last?.first == 0x1D)
     }
 }

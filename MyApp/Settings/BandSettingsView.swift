@@ -105,6 +105,22 @@ struct BandSettingsView: View {
             }
 
             Section {
+                if let body = settings.body {
+                    bodyRows(body)
+                } else {
+                    Button("Add body details", systemImage: "figure") {
+                        var new = settings
+                        new.body = BodyDetails()
+                        onChange(new)
+                    }
+                }
+            } header: {
+                Text("Body details")
+            } footer: {
+                Text("Used by the band to estimate calories, body energy and VO2 Max. Kept on this phone and sent only to the band.")
+            }
+
+            Section {
                 Toggle("Do not disturb", isOn: binding(\.doNotDisturbOn))
                 if settings.doNotDisturbOn {
                     timePicker("From", \.doNotDisturbStart)
@@ -189,6 +205,34 @@ struct BandSettingsView: View {
         Picker(title, selection: binding(key)) {
             ForEach(ButtonAction.allCases) { Text($0.label).tag($0) }
         }
+    }
+
+    @ViewBuilder
+    private func bodyRows(_ body: BodyDetails) -> some View {
+        DatePicker("Birth date", selection: Binding(
+            get: {
+                Calendar.current.date(from: DateComponents(year: body.birthYear, month: body.birthMonth, day: body.birthDay)) ?? Date()
+            },
+            set: { date in
+                let parts = Calendar.current.dateComponents([.year, .month, .day], from: date)
+                changeBody { $0.birthYear = parts.year ?? body.birthYear; $0.birthMonth = parts.month ?? 1; $0.birthDay = parts.day ?? 1 }
+            }
+        ), in: ...Date(), displayedComponents: .date)
+        Picker("Sex", selection: Binding(get: { body.sex }, set: { sex in changeBody { $0.sex = sex } })) {
+            ForEach(BodyDetails.Sex.allCases) { Text($0.label).tag($0) }
+        }
+        Stepper("Height: \(Int(body.heightCm)) cm",
+                value: Binding(get: { body.heightCm }, set: { v in changeBody { $0.heightCm = v } }), in: 100...230, step: 1)
+        Stepper("Weight: \(body.weightKg.formatted(.number.precision(.fractionLength(1)))) kg",
+                value: Binding(get: { body.weightKg }, set: { v in changeBody { $0.weightKg = v } }), in: 30...200, step: 0.5)
+    }
+
+    private func changeBody(_ change: (inout BodyDetails) -> Void) {
+        guard var body = settings.body else { return }
+        change(&body)
+        var new = settings
+        new.body = body
+        onChange(new)
     }
 
     private func timePicker(_ title: String, _ key: WritableKeyPath<BandSettings, BandClockTime>) -> some View {

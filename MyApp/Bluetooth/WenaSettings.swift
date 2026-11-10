@@ -74,6 +74,10 @@ nonisolated struct BandSettings: Codable, Equatable {
     var longPress: ButtonAction = .weatherScreen
     var doublePress: ButtonAction = .timerScreen
 
+    // Body details (0x1D). Nil until the user enters them, and then nothing is sent for them,
+    // so "Send all settings" never overwrites the band's values with made-up ones.
+    var body: BodyDetails?
+
     // Status page order (0x18) and tool menu order (0x19). Optional in storage so settings saved
     // by older builds still load; nil means Sony's default order.
     private var statusOrderStored: [StatusPage]?
@@ -93,6 +97,24 @@ nonisolated struct BandSettings: Codable, Equatable {
 
     /// Delays seen in Sony's picker, in seconds (all multiples of 5).
     static let disconnectDelayChoices = [5, 10, 15, 30, 60, 120, 180, 240]
+}
+
+/// Body details for the band's calorie and fitness estimates (`0x1D`, spec 4 and 15.2).
+nonisolated struct BodyDetails: Codable, Equatable {
+    /// The band's sex byte. Sony's capture had `01`; which value means which is **UNVERIFIED**
+    /// (see `Sex`), so the labels follow the order Sony's Japanese app most likely used.
+    enum Sex: UInt8, Codable, CaseIterable, Identifiable {
+        case male = 0, female = 1
+        var id: UInt8 { rawValue }
+        var label: String { self == .male ? "Male" : "Female" }
+    }
+
+    var sex: Sex = .male
+    var birthYear = 1990
+    var birthMonth = 1
+    var birthDay = 1
+    var heightCm = 170.0
+    var weightKg = 65.0
 }
 
 /// Status page ids (`0x18`, spec 15.5).
@@ -218,14 +240,14 @@ nonisolated enum ButtonAction: UInt16, Codable, CaseIterable, Identifiable {
 /// Builds the settings packets for the control characteristic 1514.
 ///
 /// Each one matches byte for byte what Sony's app sent for the same setting (spec 15.2, 15.5).
-/// Deliberately missing: `0x12` (notification and calendar toggles), `0x1D` (body details)
-/// and anything `0xC0` (Head Linkage).
+/// Deliberately missing: `0x12` (notification and calendar toggles) and anything `0xC0`
+/// (Head Linkage). `0x1D` (body details) is sent only once the user has entered them.
 nonisolated enum WenaSettings {
 
     /// The groups the settings screen changes. Each is sent on its own, like Sony's app does.
     enum Group: String, Codable, CaseIterable {
         // In the order Sony's rewrite sends them (17, 18, 19, 1A, 1B, 1C).
-        case vibration, disconnectAlert, doNotDisturb, autoPowerOff, dayStart, stepGoal, statusPages, menu, display, homeIcons, buttons
+        case vibration, disconnectAlert, doNotDisturb, autoPowerOff, dayStart, stepGoal, statusPages, menu, display, homeIcons, buttons, bodyDetails
     }
 
     /// The packets for one group, in order.
@@ -243,6 +265,7 @@ nonisolated enum WenaSettings {
         // Sony's app always re-sends the display packet just before the home icons.
         case .homeIcons: [display(s), homeIcons(s)]
         case .buttons: [buttons(s)]
+        case .bodyDetails: s.body.map { [bodyDetails($0)] } ?? []
         }
     }
 
@@ -316,6 +339,22 @@ nonisolated enum WenaSettings {
     /// `1C`, long press action, double press action (2 bytes each).
     static func buttons(_ s: BandSettings) -> Data {
         Data([0x1C] + s.longPress.bytes + s.doublePress.bytes)
+    }
+
+    /// `1D`, sex, birth year (int16), month, day, height in cm x10 (int16), weight in kg x10 (int16).
+    /// Height before weight, as Sony's capture shows (spec 15.2).
+    static func bodyDetails(_ b: BodyDetails) -> Data {
+        var data = Data([0x1D, b.sex.rawValue])
+        data.append(contentsOf: le16(b.birthYear))
+        data.append(contentsOf: [UInt8(clamping: b.birthMonth), UInt8(clamping: b.birthDay)])
+        data.append(contentsOf: le16(Int((b.heightCm * 10).rounded())))
+        data.append(contentsOf: le16(Int((b.weightKg * 10).rounded())))
+        return data
+    }
+
+    private static func le16(_ value: Int) -> [UInt8] {
+        let v = UInt16(clamping: max(value, 0))
+        return [UInt8(v & 0xFF), UInt8(v >> 8)]
     }
 
     private static func window(_ opcode: UInt8, on: Bool, _ start: BandClockTime, _ end: BandClockTime) -> Data {

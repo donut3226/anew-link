@@ -250,8 +250,8 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 | Per-app notifications (which apps reach the band, LED colour, vibration pattern, count) | Built 10 Nov 2026: "Notifications on the band" screen, preset apps plus any name, Calls, "Try it" buzz, in "Send all settings" | Confirm on the band: the list characteristic is found (event log), an app removed from the list stops reaching the band |
 | Notifications and calendar master switch (`0x12`) | Not sent | Sony sends `12 01 01` on every app open; lifting the rule is the owner's call |
 | Activity history: steps, heart rate | Done, saved to Apple Health | - |
-| Sleep, calories, VO2 Max, stress, body energy | Not decoded | Decode the other activity types (dashboard values noted for one capture); sleep, calories and VO2 Max have Apple Health types |
-| Body details (birth date, height, weight, gender) | Not built | Layout confirmed (spec 15.2); Health can supply the values; affects calorie accuracy |
+| Sleep, calories, VO2 Max, stress, body energy | Decoded 10 Nov 2026 from our captures (spec 7.1): VO2 Max saved to Apple Health; body energy, stress and calories shown after a manual sync | Sleep kinds need a morning sync's raw stream (debug copy button); calories' unit needs comparing with the band's Calorie screen before saving to Health |
+| Body details (birth date, height, weight, gender) | Built 10 Nov 2026: entered by hand in Band settings, sent only once entered | Which sex byte means which is unconfirmed (Sony's capture had `01`); reading the values from Apple Health needs the owner's OK to add Health read access |
 | Pairing a new or reset band | Not built | Design in plan 14; needs a test on a stuck band |
 | Rewrite settings | Done ("Send all settings") | - |
 | Watch head (Head Linkage) | Not built | Only for WIRED/Seiko heads, out of scope |

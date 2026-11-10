@@ -238,3 +238,32 @@ nonisolated enum WenaSettings {
               UInt8(clamping: end.hour), UInt8(clamping: end.minute)])
     }
 }
+
+/// The one-off test notification, as sent by Sony's "Try this notification pattern" button
+/// (spec section 8 layout, confirmed on our band in 15.5). Written to 4002.
+///
+/// This is not notification forwarding: iOS delivers real notifications through ANCS.
+/// It only lets the user feel the current vibration strength.
+nonisolated enum WenaTestNotification {
+
+    /// LED colour white, vibration flags 03, pattern basic, vibrate once.
+    static let white: UInt8 = 0x07
+    static let basicPattern: UInt8 = 0x02
+
+    static let title = "Anew Link"
+    static let message = "Vibration test"
+
+    /// `00`, colour, `03`, pattern, count, title length, message length, flags `01`, kind `00`,
+    /// action length `00`, notification id (int32), Wena timestamp (int32), title, message.
+    static func packet(id: Int32, date: Date) -> Data {
+        let titleBytes = Array(title.utf8.prefix(31))
+        let messageBytes = Array(message.utf8.prefix(239))
+        var data = Data([0x00, white, 0x03, basicPattern, 0x01,
+                         UInt8(titleBytes.count), UInt8(messageBytes.count), 0x01, 0x00, 0x00])
+        withUnsafeBytes(of: id.littleEndian) { data.append(contentsOf: $0) }
+        withUnsafeBytes(of: WenaPackets.wenaTimestamp(for: date).littleEndian) { data.append(contentsOf: $0) }
+        data.append(contentsOf: titleBytes)
+        data.append(contentsOf: messageBytes)
+        return data
+    }
+}

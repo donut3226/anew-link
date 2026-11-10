@@ -11,11 +11,14 @@ final class BandSettingsStore {
 
     private static let settingsKey = "bandSettings.values"
     private static let pendingKey = "bandSettings.pending"
+    private static let testIdKey = "bandSettings.testNotificationId"
 
     enum Status: Equatable {
         case idle
         case sending
         case sent(at: Date)
+        /// The test notification reached the band.
+        case buzzed(at: Date)
         /// Saved on the phone; sent when the band connects.
         case waiting
         case failed(String)
@@ -60,6 +63,24 @@ final class BandSettingsStore {
     func sendAll(using connection: BandConnection) async {
         pending = Set(WenaSettings.Group.allCases)
         _ = await send(using: connection)
+    }
+
+    /// Makes the band buzz once (a test notification), so the user can feel the strength.
+    /// Only when connected and idle; nothing waits for later.
+    func testVibration(using connection: BandConnection) async {
+        guard connection.state == .connected, !connection.isSending, !connection.activity.inProgress else {
+            status = .failed("Connect the band to feel the vibration.")
+            return
+        }
+        // Each test gets a new id, so the band treats it as a new notification.
+        let id = Int32(clamping: defaults.integer(forKey: Self.testIdKey) + 1)
+        defaults.set(Int(id), forKey: Self.testIdKey)
+        status = .sending
+        if let error = await connection.sendTestNotification(WenaTestNotification.packet(id: id, date: Date())) {
+            status = .failed(error)
+        } else {
+            status = .buzzed(at: Date())
+        }
     }
 
     /// Called when the band connects: sends changes that couldn't be sent earlier.

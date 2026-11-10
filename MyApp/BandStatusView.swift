@@ -126,6 +126,7 @@ struct BandStatusView: View {
             bandSettingsStatus: bandSettings.status,
             onChangeBandSettings: { new in Task { await bandSettings.update(new, using: connection) } },
             onSendAllBandSettings: { Task { await bandSettings.sendAll(using: connection) } },
+            onTestVibration: { Task { await bandSettings.testVibration(using: connection) } },
             onStartDemo: { isDemo = true }
         )
     }
@@ -206,6 +207,7 @@ struct BandStatusContent: View {
     var bandSettingsStatus: BandSettingsStore.Status = .idle
     var onChangeBandSettings: (BandSettings) -> Void = { _ in }
     var onSendAllBandSettings: () -> Void = {}
+    var onTestVibration: () -> Void = {}
     /// Shown as "Try the demo" when there's no band to talk to (nil hides it).
     var onStartDemo: (() -> Void)?
     /// Demo mode only: shows the demo banner with an Exit button.
@@ -300,7 +302,8 @@ struct BandStatusContent: View {
                     Section {
                         NavigationLink {
                             BandSettingsView(settings: bandSettings, status: bandSettingsStatus, isBusy: isBusy,
-                                             onChange: onChangeBandSettings, onSendAll: onSendAllBandSettings)
+                                             onChange: onChangeBandSettings, onSendAll: onSendAllBandSettings,
+                                             onTestVibration: onTestVibration)
                         } label: {
                             Label("Band settings", systemImage: "slider.horizontal.3")
                         }

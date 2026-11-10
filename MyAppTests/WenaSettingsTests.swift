@@ -90,3 +90,19 @@ struct WenaSettingsTests {
         #expect(bytes(WenaSettings.stepGoal(s)) == [0x17, 0x00, 0x10, 0x27, 0x00, 0x00])
     }
 }
+
+/// The test notification follows the "Try this notification pattern" packet Sony's app sent.
+struct WenaTestNotificationTests {
+
+    @Test func headerMatchesSonysTryPacket() {
+        // Sony (Gmail set to red, siren, 3 times): 00 01 03 08 03 14 13 01 00 00 | id | time | texts.
+        // Ours: white, basic, once, with our own texts.
+        let date = WenaPackets.epoch.addingTimeInterval(216_459_349)
+        let packet = [UInt8](WenaTestNotification.packet(id: 9, date: date))
+        #expect(Array(packet.prefix(10)) == [0x00, 0x07, 0x03, 0x02, 0x01, 9, 14, 0x01, 0x00, 0x00])
+        #expect(Array(packet[10..<14]) == [0x09, 0x00, 0x00, 0x00])
+        #expect(Array(packet[14..<18]) == [0x55, 0xE8, 0xE6, 0x0C])   // same timestamp bytes as Sony's
+        #expect(String(decoding: packet[18..<27], as: UTF8.self) == "Anew Link")
+        #expect(String(decoding: packet[27...], as: UTF8.self) == "Vibration test")
+    }
+}

@@ -10,6 +10,7 @@ struct BandSettingsView: View {
     var isBusy = false
     let onChange: (BandSettings) -> Void
     var onSendAll: () -> Void = {}
+    var onTestVibration: () -> Void = {}
 
     var body: some View {
         Form {
@@ -19,12 +20,18 @@ struct BandSettingsView: View {
                 Text("Each change is sent to the band straight away. The band can't report its settings back, so this screen shows what Anew Link last sent.")
             }
 
-            Section("Vibration") {
+            Section {
                 Picker("Strength", selection: binding(\.vibration)) {
                     ForEach(BandSettings.Strength.ordered) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+                Button("Feel it on the band", systemImage: "waveform", action: onTestVibration)
+                    .disabled(isBusy)
                 Toggle("Stop vibrating at rest", isOn: binding(\.stopVibratingAtRest))
+            } header: {
+                Text("Vibration")
+            } footer: {
+                Text("Feel it sends one test notification, so the band buzzes once at this strength.")
             }
 
             Section {
@@ -135,6 +142,9 @@ struct BandSettingsView: View {
             }
         case .sent(let at):
             Label("Sent to the band at \(at.formatted(date: .omitted, time: .shortened))", systemImage: "checkmark.circle")
+                .foregroundStyle(.green)
+        case .buzzed(let at):
+            Label("Test buzz sent at \(at.formatted(date: .omitted, time: .shortened))", systemImage: "waveform")
                 .foregroundStyle(.green)
         case .waiting:
             Label("Saved. Sent when the band connects.", systemImage: "clock.arrow.circlepath")

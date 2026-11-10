@@ -83,6 +83,7 @@ struct DemoView: View {
                 bandSettingsStatus = .sent(at: Date())
             },
             onSendAllBandSettings: { bandSettingsStatus = .sent(at: Date()) },
+            onTestVibration: { bandSettingsStatus = .buzzed(at: Date()) },
             onExitDemo: onExit
         )
     }

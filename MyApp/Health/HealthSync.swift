@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 import Observation
 
-/// Saves band steps and heart rate to Apple Health. Write-only: it never reads Health data.
+/// Saves band steps, heart rate and VO2 Max to Apple Health. Write-only: it never reads Health data.
 @Observable
 final class HealthSync {
 
@@ -21,6 +21,7 @@ final class HealthSync {
 
     private static let stepType = HKQuantityType(.stepCount)
     private static let heartRateType = HKQuantityType(.heartRate)
+    private static let vo2MaxType = HKQuantityType(.vo2Max)
 
     var isBusy: Bool {
         status == .asking || status == .saving
@@ -59,7 +60,7 @@ final class HealthSync {
             if askPermission {
                 status = .asking
                 // Shows the Health popup the first time. "read: []" because we never read.
-                try await store.requestAuthorization(toShare: [Self.stepType, Self.heartRateType], read: [])
+                try await store.requestAuthorization(toShare: [Self.stepType, Self.heartRateType, Self.vo2MaxType], read: [])
             }
 
             let allowed = records.filter { store.authorizationStatus(for: Self.type(for: $0.kind)) == .sharingAuthorized }
@@ -88,6 +89,7 @@ final class HealthSync {
         switch kind {
         case .steps: stepType
         case .heartRate: heartRateType
+        case .vo2Max: vo2MaxType
         }
     }
 
@@ -96,6 +98,7 @@ final class HealthSync {
         let unit: HKUnit = switch record.kind {
         case .steps: .count()
         case .heartRate: .count().unitDivided(by: .minute())   // beats per minute
+        case .vo2Max: HKUnit(from: "ml/kg*min")
         }
         return HKQuantitySample(
             type: type(for: record.kind),

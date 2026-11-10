@@ -7,6 +7,7 @@ nonisolated struct HealthRecord: Equatable {
     enum Kind: String {
         case steps
         case heartRate
+        case vo2Max
     }
 
     let kind: Kind
@@ -25,6 +26,7 @@ nonisolated enum HealthRecords {
     /// - Steps: one record per minute with steps (0-step minutes are skipped), covering that minute.
     ///   The version is the step count, so a minute that was still filling up gets updated next time.
     /// - Heart rate: one record per reading, at that moment.
+    /// - VO2 Max: one record per reading.
     static func make(from samples: [ActivitySample]) -> [HealthRecord] {
         samples.compactMap { sample in
             let id = "\(WenaPackets.wenaTimestamp(for: sample.date))"
@@ -44,7 +46,17 @@ nonisolated enum HealthRecords {
                                     value: Double(sample.value),
                                     syncIdentifier: "heartRate-\(id)",
                                     syncVersion: 1)
+            case .vo2:
+                // One reading per day, dated midnight UTC by the band (spec 7.1).
+                return HealthRecord(kind: .vo2Max,
+                                    start: sample.date,
+                                    end: sample.date,
+                                    value: Double(sample.value),
+                                    syncIdentifier: "vo2Max-\(id)",
+                                    syncVersion: sample.value)
             default:
+                // Calories wait until their unit is confirmed (spec 7.1); stress and body energy
+                // have no Health type.
                 return nil
             }
         }

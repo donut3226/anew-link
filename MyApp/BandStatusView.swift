@@ -384,7 +384,7 @@ struct BandStatusContent: View {
                         case nil:
                             Text("Couldn't read the firmware version. Activity sync needs 2.40 or later.")
                         case true?:
-                            Text("Steps and heart rate, read from the band. Saved automatically about every 2 hours, also with the phone locked, after you've tapped Save to Apple Health once to allow it.")
+                            Text("Steps, heart rate and VO2 Max are saved to Apple Health; body energy, stress and calories are shown here only. Saved automatically about every 2 hours, also with the phone locked, after you've tapped Save to Apple Health once to allow it.")
                         }
                     }
 
@@ -620,6 +620,18 @@ struct BandStatusContent: View {
             } ?? "No readings")
             if let low = summary.heartRateMin, let high = summary.heartRateMax {
                 LabeledContent("Heart rate range", value: "\(low)-\(high) bpm")
+            }
+            if let energy = summary.latestBodyEnergy {
+                LabeledContent("Body energy", value: "\(energy)")
+            }
+            if let stress = summary.latestStress {
+                LabeledContent("Stress", value: "\(stress)")
+            }
+            if let vo2 = summary.vo2Max {
+                LabeledContent("VO2 Max", value: "\(vo2)")
+            }
+            if let calories = summary.caloriesToday {
+                LabeledContent("Calories today (unconfirmed)", value: "\(calories) kcal")
             }
             LabeledContent("Newest sample", value: Self.newestSampleText(summary))
             #if DEBUG

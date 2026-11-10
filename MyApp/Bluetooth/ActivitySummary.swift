@@ -14,6 +14,13 @@ nonisolated struct ActivitySummary: Equatable {
     var newestSampleMinutesAgo: Int?
     var stepMinuteCount = 0
     var heartRateCount = 0
+    /// Latest body energy (0-100) and stress (0-100) readings, if the band sent any (spec 7.1).
+    var latestBodyEnergy: Int?
+    var latestStress: Int?
+    /// The newest VO2 Max reading (ml/kg/min).
+    var vo2Max: Int?
+    /// Calories since midnight in kcal, assuming the band counts 1/1000 kcal (UNVERIFIED, spec 7.1).
+    var caloriesToday: Int?
 
     /// - Parameters:
     ///   - now: when the sync happened.
@@ -36,9 +43,21 @@ nonisolated struct ActivitySummary: Equatable {
         heartRateMin = heartRates.map(\.value).min()
         heartRateMax = heartRates.map(\.value).max()
 
-        newestSampleAt = samples.map(\.date).max()
+        latestBodyEnergy = Self.latest(.bodyEnergy, in: samples)
+        latestStress = Self.latest(.stress, in: samples)
+        vo2Max = Self.latest(.vo2, in: samples)
+        let calories = samples.filter { $0.type == .calories && $0.date >= midnight }
+        if !calories.isEmpty {
+            caloriesToday = Int((Double(calories.reduce(0) { $0 + $1.value }) / 1000).rounded())
+        }
+
+        newestSampleAt = samples.filter { $0.type != .vo2 }.map(\.date).max()
         if let newest = newestSampleAt {
             newestSampleMinutesAgo = Int(now.timeIntervalSince(newest) / 60)
         }
+    }
+
+    private static func latest(_ type: ActivityDataType, in samples: [ActivitySample]) -> Int? {
+        samples.filter { $0.type == type }.max { $0.date < $1.date }?.value
     }
 }

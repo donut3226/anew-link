@@ -148,7 +148,22 @@ Data types: 0 steps, 1 heart rate, 2 behaviour (activity kind with a time range)
 
 **Data payloads**:
 - Steps and heart rate: one unsigned byte per sample, one sample per minute, starting at the header timestamp. Heart rate of 0 presumably means no reading. **UNVERIFIED**
-- Behaviour, VO2, stress, energy and calories layouts: **not yet extracted**. Read the matching parser files next.
+- Behaviour, VO2, stress, energy, calories and events: decoded from our own captures of Sony's app, see 7.1.
+
+### 7.1 The other data types, from our captures (10 Nov 2026)
+
+Source: the two PacketLogger captures of Sony's app (section 15), which each ran normal activity syncs (four in all, one covering 8 hours of a day). Decoded by us from the raw stream; no Gadgetbridge code involved. The band was mostly off the wrist that day (steps total 89), so values are few. Sony's requests asked for every type, with each type's own "last sync" time.
+
+| Type | Header | Data layout | What we saw | Status |
+|---|---|---|---|---|
+| 2 behaviour | type byte only (no time) | 13-byte records: kind (1), then three int32 times: end, start, end again | Back-to-back 16-minute blocks (shorter at the edges). Kind `01` most of the day, `09` in a few blocks (12:42-12:56, 17:14-17:16, 17:56-18:20) | Layout **confirmed** (lengths are exact multiples of 13, times chain). Kind meanings **UNVERIFIED**; no night was captured, so the sleep kinds are unknown |
+| 3 VO2 | type byte only | 5-byte records: int32 date (midnight UTC of the day), uint8 VO2 Max in ml/kg/min | One record, 43, dated the day before; Sony's next request used that date + 60 s as its VO2 "last sync" | Layout **confirmed** by Sony's own request; value plausible, not yet checked against the band's VO2 Max screen |
+| 4 stress | type, int32 start | 1 byte per minute | Every minute `7F` (127) | `7F` most likely means "no reading" **UNVERIFIED**; real values not seen yet |
+| 5 body energy | type, int32 start | 1 byte per minute, 0-100 | Falls slowly through the day (65 to 38), one step per 10-15 minutes | Looks like the percentage shown on the band, **UNVERIFIED** against the band's screen |
+| 6 calories | type, int32 start | uint16 little-endian per minute | Floor of 734 most minutes (band off the wrist), up to 1319 when active | Unit **UNVERIFIED**: if it is 1/1000 kcal (small calories), the floor is a resting 1057 kcal a day, which is plausible. Compare the day's total with the band's Calorie screen before saving to Health |
+| 7 events | type byte only | 8-byte records: `07`, int32 time, then 3 bytes (`01 xx 00`, xx seen as 00, 01, 03, 04) | 38 events over 8 hours, clustered | Meaning unknown (maybe screen or button events). Not used |
+
+Steps and heart rate (types 0 and 1) matched section 7 exactly in the same captures.
 
 Known data quality issues from the author and issue tracker: sleep data is flaky, VO2 stopped reporting on the author's band at one point, and an early version had a bug (caught in PR review) where multiple VO2 samples with the same timestamp overwrote each other in its database. Our own storage should not key samples by timestamp alone for data types that can repeat.
 
@@ -469,6 +484,8 @@ Each slot's list leaves out the icons the other two slots already use.
 **Menu (tool screen) ids** (`0x19`, matched by position against Sony's list): `07` weather, `02` alarm, `01` timer, `03` find your phone, `09` camera, `08` music, `04` Alexa, `06` Qrio Lock, `05` payment, `00` settings.
 
 **Status page ids** (`0x18`, matched by position): `01` Steps, `03` Heart Rate, `07` Calorie, `04` VO2 Max, `05` Stress & Recovery, `02` Sleep, `06` Body Energy.
+
+Anew Link sends `0x18` and `0x19` from drag-to-reorder lists, always with every id (leaving an id out to hide an item is untested).
 
 **Vibration** (`0x08`): `08 00 00` medium, `08 01 00` weak, `08 02 00` strong; second byte `01` = "stop vibrating at rest" on. Matches section 9.
 

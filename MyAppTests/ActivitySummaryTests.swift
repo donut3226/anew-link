@@ -45,4 +45,23 @@ struct ActivitySummaryTests {
         #expect(summary.newestSampleAt == nil)
         #expect(summary.newestSampleMinutesAgo == nil)
     }
+
+    @Test func otherTypesInSummary() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let calendar = Calendar(identifier: .gregorian)
+        let midnight = calendar.startOfDay(for: now)
+        let samples = [
+            ActivitySample(type: .bodyEnergy, date: now.addingTimeInterval(-120), value: 60),
+            ActivitySample(type: .bodyEnergy, date: now.addingTimeInterval(-60), value: 59),
+            ActivitySample(type: .vo2, date: midnight.addingTimeInterval(-86_400), value: 43),
+            ActivitySample(type: .calories, date: midnight.addingTimeInterval(60), value: 1000),
+            ActivitySample(type: .calories, date: midnight.addingTimeInterval(120), value: 1500),
+            ActivitySample(type: .calories, date: midnight.addingTimeInterval(-60), value: 9999),
+        ]
+        let summary = ActivitySummary(samples: samples, now: now, calendar: calendar)
+        #expect(summary.latestBodyEnergy == 59)
+        #expect(summary.vo2Max == 43)
+        #expect(summary.latestStress == nil)
+        #expect(summary.caloriesToday == 3)       // 2500 / 1000, rounded
+    }
 }

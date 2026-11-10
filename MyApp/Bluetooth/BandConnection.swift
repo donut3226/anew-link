@@ -247,7 +247,7 @@ final class BandConnection: NSObject {
 
     // MARK: - Activity sync (spec section 7)
 
-    /// Gets steps and heart rate from the band: the last 24 hours, or since `since` if given.
+    /// Gets activity from the band (steps, heart rate and the types in spec 7.1): the last 24 hours, or since `since` if given.
     ///
     /// Steps: subscribe to 3002 (so the band can stream to us), send requests A and B and start,
     /// collect the stream, then unsubscribe. Subscribing is the one write that doesn't go through
@@ -290,9 +290,10 @@ final class BandConnection: NSObject {
         let now = WenaPackets.wenaTimestamp(for: activityStartedAt)
         let from = WenaPackets.wenaTimestamp(for: activitySince ?? activityStartedAt.addingTimeInterval(-24 * 60 * 60))
         let packets = [
-            // Steps and heart rate since `from`. Everything else "newer than now", which is nothing.
-            WenaPackets.activityRequestA(steps: from, heartRate: from, behaviour: now, vo2: now),
-            WenaPackets.activityRequestB(stress: now, bodyEnergy: now, calories: now, events: now),
+            // Every type since `from`, as Sony's app does (spec 7.1), except events, which we
+            // can't decode: those are asked "newer than now", which is nothing.
+            WenaPackets.activityRequestA(steps: from, heartRate: from, behaviour: from, vo2: from),
+            WenaPackets.activityRequestB(stress: from, bodyEnergy: from, calories: from, events: now),
             WenaPackets.activityStart,
         ]
         activity = .receiving(packets: 0)

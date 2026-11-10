@@ -1,7 +1,8 @@
 import Foundation
 
-/// Data types in the activity stream (spec section 7).
-/// We only decode steps and heart rate so far; the rest are listed so we can ignore them safely.
+/// Data types in the activity stream (spec section 7 and 7.1).
+/// Steps and heart rate are confirmed; the others were decoded from our captures of Sony's app
+/// (spec 7.1) and some of their meanings are still UNVERIFIED. Events are not decoded.
 nonisolated enum ActivityDataType: UInt8 {
     case steps = 0
     case heartRate = 1
@@ -13,11 +14,24 @@ nonisolated enum ActivityDataType: UInt8 {
     case events = 7   // the spec lists this one as unknown
 }
 
-/// One minute of data from the band.
+/// One minute of data from the band (for VO2 Max: one reading for a day).
+///
+/// Values as the band sends them: steps and heart rate as counts, stress and body energy 0-100,
+/// calories in the band's own unit (most likely 1/1000 kcal per minute, UNVERIFIED),
+/// VO2 Max in ml/kg/min.
 nonisolated struct ActivitySample: Equatable {
     let type: ActivityDataType
     let date: Date
     let value: Int
+}
+
+/// One behaviour block (type 2): what the band thinks the wearer was doing from `start` to `end`.
+/// The meaning of `kind` is UNVERIFIED (spec 7.1): `01` and `09` were seen during a day; the
+/// sleep kinds haven't been captured yet.
+nonisolated struct BehaviourRecord: Equatable {
+    let kind: UInt8
+    let start: Date
+    let end: Date
 }
 
 // MARK: - Requests (phone to band, written to 3002)
@@ -96,6 +110,7 @@ nonisolated struct ActivityStreamAssembler {
     }
 
     private(set) var samples: [ActivitySample] = []
+    private(set) var behaviours: [BehaviourRecord] = []
     private(set) var packetCount = 0
     private(set) var badCRCCount = 0
 
@@ -104,6 +119,8 @@ nonisolated struct ActivityStreamAssembler {
     private var currentType: ActivityDataType?
     /// Wena timestamp of the next sample in the current block.
     private var nextSampleTime: Int32?
+    /// Bytes of a record that continues in the next packet (record types only).
+    private var carry: [UInt8] = []
 
     mutating func feed(_ data: Data) -> Event {
         guard let packet = ActivityPacket(data) else { return .ignored }
@@ -142,6 +159,7 @@ nonisolated struct ActivityStreamAssembler {
     private mutating func startBlock(_ payload: [UInt8]) {
         guard let typeByte = payload.first else { return }
         currentType = ActivityDataType(rawValue: typeByte)
+        carry = []
         if payload.count >= 5 {
             let raw = UInt32(payload[1]) | UInt32(payload[2]) << 8 | UInt32(payload[3]) << 16 | UInt32(payload[4]) << 24
             nextSampleTime = Int32(bitPattern: raw)
@@ -150,19 +168,72 @@ nonisolated struct ActivityStreamAssembler {
         }
     }
 
-    /// Steps and heart rate: one unsigned byte per minute, continuing from the header's time.
+    /// Adds one data packet to the current block, by type (spec 7 and 7.1).
     private mutating func addSamples(_ payload: [UInt8]) {
-        guard let type = currentType, type == .steps || type == .heartRate,
-              var time = nextSampleTime else { return }
-        for byte in payload {
-            // A heart rate of 0 presumably means "no reading" (spec section 7).
-            if !(type == .heartRate && byte == 0) {
-                samples.append(ActivitySample(type: type,
-                                              date: WenaPackets.date(fromWenaTimestamp: time),
-                                              value: Int(byte)))
+        guard let type = currentType else { return }
+        switch type {
+        case .steps, .heartRate, .stress, .bodyEnergy:
+            addPerMinute(payload, type: type, size: 1)
+        case .calories:
+            addPerMinute(payload, type: type, size: 2)
+        case .vo2:
+            // 5-byte records: int32 date, then VO2 Max (ml/kg/min). 0 would be no reading.
+            for record in records(payload, size: 5) {
+                let value = Int(record[record.startIndex + 4])
+                guard value > 0 else { continue }
+                samples.append(ActivitySample(type: .vo2, date: WenaPackets.date(fromWenaTimestamp: Self.int32(record, at: 0)),
+                                              value: value))
+            }
+        case .behaviour:
+            // 13-byte records: kind, then end, start, end again (int32 each).
+            for record in records(payload, size: 13) {
+                let start = Self.int32(record, at: 5), end = Self.int32(record, at: 9)
+                guard end >= start else { continue }
+                behaviours.append(BehaviourRecord(kind: record[record.startIndex],
+                                                  start: WenaPackets.date(fromWenaTimestamp: start),
+                                                  end: WenaPackets.date(fromWenaTimestamp: end)))
+            }
+        case .events:
+            break   // 8-byte records whose meaning is unknown (spec 7.1)
+        }
+    }
+
+    /// One value per minute (1 or 2 bytes, little-endian), continuing from the header's time.
+    private mutating func addPerMinute(_ payload: [UInt8], type: ActivityDataType, size: Int) {
+        guard var time = nextSampleTime else { return }
+        for record in records(payload, size: size) {
+            let first = record.startIndex
+            let value = size == 2 ? Int(record[first]) | Int(record[first + 1]) << 8 : Int(record[first])
+            if Self.isReading(value, type: type) {
+                samples.append(ActivitySample(type: type, date: WenaPackets.date(fromWenaTimestamp: time), value: value))
             }
             time &+= 60   // &+= can't crash on overflow, even with nonsense data
         }
         nextSampleTime = time
+    }
+
+    /// False for values that mean "no reading": heart rate 0 (spec 7), stress 127 (`7F`, the only
+    /// stress value seen so far, UNVERIFIED) and anything over 100 for body energy.
+    static func isReading(_ value: Int, type: ActivityDataType) -> Bool {
+        switch type {
+        case .heartRate: value != 0
+        case .stress: value != 0x7F && value <= 100
+        case .bodyEnergy: value <= 100
+        default: true
+        }
+    }
+
+    /// Splits the payload into fixed-size records, keeping a partial record for the next packet.
+    private mutating func records(_ payload: [UInt8], size: Int) -> [ArraySlice<UInt8>] {
+        let bytes = carry + payload
+        let whole = bytes.count / size * size
+        carry = Array(bytes[whole...])
+        return stride(from: 0, to: whole, by: size).map { bytes[$0..<$0 + size] }
+    }
+
+    private static func int32(_ record: ArraySlice<UInt8>, at offset: Int) -> Int32 {
+        let i = record.startIndex + offset
+        let raw = UInt32(record[i]) | UInt32(record[i + 1]) << 8 | UInt32(record[i + 2]) << 16 | UInt32(record[i + 3]) << 24
+        return Int32(bitPattern: raw)
     }
 }

@@ -149,9 +149,52 @@ struct WenaActivityTests {
 
     @Test func undecodedTypesAreIgnored() {
         var assembler = ActivityStreamAssembler()
-        _ = assembler.feed(header(0xFF, type: 3, start: start))   // VO2
-        #expect(assembler.feed(data(0, [40, 41])) == .accepted)
+        _ = assembler.feed(packet(0xFF, kind: 0, [7]))            // events
+        #expect(assembler.feed(data(0, [7, 1, 2, 3, 4, 1, 3, 0])) == .accepted)
         #expect(assembler.samples.isEmpty)
+    }
+
+    // MARK: - Other types (spec 7.1, layouts from our Sony captures; values made up)
+
+    @Test func vo2RecordIsDateThenValue() {
+        var assembler = ActivityStreamAssembler()
+        _ = assembler.feed(packet(0xFF, kind: 0, [3]))            // VO2 header has no time
+        let day = withUnsafeBytes(of: start.littleEndian) { Array($0) }
+        _ = assembler.feed(data(0, day + [43]))
+        #expect(assembler.samples == [ActivitySample(type: .vo2, date: startDate, value: 43)])
+    }
+
+    @Test func behaviourRecordsSpanPackets() {
+        var assembler = ActivityStreamAssembler()
+        _ = assembler.feed(packet(0xFF, kind: 0, [2]))
+        func le(_ v: Int32) -> [UInt8] { withUnsafeBytes(of: v.littleEndian) { Array($0) } }
+        let record = [0x01] + le(start + 960) + le(start) + le(start + 960)
+        let second = [0x09] + le(start + 1800) + le(start + 960) + le(start + 1800)
+        let bytes = record + second
+        _ = assembler.feed(data(0, Array(bytes[0..<20])))       // second record split across packets
+        _ = assembler.feed(data(1, Array(bytes[20...])))
+        #expect(assembler.behaviours.map(\.kind) == [0x01, 0x09])
+        #expect(assembler.behaviours[0].start == startDate)
+        #expect(assembler.behaviours[1].end == startDate.addingTimeInterval(1800))
+    }
+
+    @Test func caloriesAreTwoBytesPerMinute() {
+        var assembler = ActivityStreamAssembler()
+        _ = assembler.feed(header(0xFF, type: 6, start: start))
+        _ = assembler.feed(data(0, [0xDE, 0x02, 0x27]))          // 734, then half of 1319
+        _ = assembler.feed(data(1, [0x05]))
+        #expect(assembler.samples.map(\.value) == [734, 1319])
+        #expect(assembler.samples[1].date == startDate.addingTimeInterval(60))
+    }
+
+    @Test func stress7FIsNoReadingButBodyEnergyIsKept() {
+        var assembler = ActivityStreamAssembler()
+        _ = assembler.feed(header(0xFF, type: 4, start: start))
+        _ = assembler.feed(data(0, [0x7F, 30, 0x7F]))
+        _ = assembler.feed(header(1, type: 5, start: start))
+        _ = assembler.feed(data(2, [65, 64]))
+        #expect(assembler.samples.map(\.type) == [.stress, .bodyEnergy, .bodyEnergy])
+        #expect(assembler.samples[0].date == startDate.addingTimeInterval(60))
     }
 
     @Test func newFFStartsAFreshSync() {

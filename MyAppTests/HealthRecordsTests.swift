@@ -48,7 +48,17 @@ struct HealthRecordsTests {
     }
 
     @Test func otherTypesAreIgnored() {
-        let samples = [ActivitySample(type: .vo2, date: start, value: 40)]
+        let samples = [ActivitySample(type: .stress, date: start, value: 40),
+                       ActivitySample(type: .calories, date: start, value: 734),
+                       ActivitySample(type: .bodyEnergy, date: start, value: 60)]
         #expect(HealthRecords.make(from: samples).isEmpty)
+    }
+
+    @Test func vo2MaxBecomesOneRecord() {
+        let records = HealthRecords.make(from: [ActivitySample(type: .vo2, date: start, value: 43)])
+        #expect(records.count == 1)
+        #expect(records[0].kind == .vo2Max)
+        #expect(records[0].value == 43)
+        #expect(records[0].syncIdentifier.hasPrefix("vo2Max-"))
     }
 }

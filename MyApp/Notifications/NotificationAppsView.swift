@@ -10,6 +10,8 @@ struct NotificationAppsView: View {
     var isBusy = false
     /// False until the band's list characteristic has been found (spec 15.1).
     var listFound = true
+    /// The list characteristic's short id once found (for example "1530"), shown so it can be noted in the spec.
+    var listID: String?
     var neverSent = false
     let onChange: ([NotifyApp]) -> Void
     var onTry: (NotifyApp) -> Void = { _ in }
@@ -24,6 +26,9 @@ struct NotificationAppsView: View {
         Form {
             Section {
                 statusRow
+                if let listID {
+                    LabeledContent("Band's list found", value: listID)
+                }
                 if !listFound {
                     Label("The band's notification list hasn't been found yet. Connect the band and tap Refresh.",
                           systemImage: "exclamationmark.triangle")

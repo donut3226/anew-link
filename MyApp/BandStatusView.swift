@@ -1,3 +1,4 @@
+import CoreBluetooth
 import SwiftUI
 
 /// The first screen: shows the band's firmware, battery and serial, and the send buttons.
@@ -147,6 +148,7 @@ struct BandStatusView: View {
             notificationApps: notificationApps.apps,
             notificationStatus: notificationApps.status,
             notificationListFound: connection.state != .connected || connection.notificationListUUID != nil,
+            notificationListID: connection.notificationListUUID.map { WenaGATT.shortID($0) ?? $0.uuidString },
             notificationNeverSent: notificationApps.neverSent,
             onChangeNotificationApps: { list in Task { await notificationApps.update(list, using: connection) } },
             onTryNotification: { app in Task { await bandSettings.testVibration(using: connection, app: app) } },
@@ -243,6 +245,7 @@ struct BandStatusContent: View {
     var notificationApps: [NotifyApp] = WenaNotificationList.defaultList()
     var notificationStatus: NotificationAppsStore.Status = .idle
     var notificationListFound = true
+    var notificationListID: String?
     var notificationNeverSent = false
     var onChangeNotificationApps: ([NotifyApp]) -> Void = { _ in }
     var onTryNotification: (NotifyApp) -> Void = { _ in }
@@ -355,7 +358,8 @@ struct BandStatusContent: View {
                         }
                         NavigationLink {
                             NotificationAppsView(apps: notificationApps, status: notificationStatus, isBusy: isBusy,
-                                                 listFound: notificationListFound, neverSent: notificationNeverSent,
+                                                 listFound: notificationListFound, listID: notificationListID,
+                                                 neverSent: notificationNeverSent,
                                                  onChange: onChangeNotificationApps, onTry: onTryNotification)
                         } label: {
                             Label("Notifications on the band", systemImage: "bell.badge")

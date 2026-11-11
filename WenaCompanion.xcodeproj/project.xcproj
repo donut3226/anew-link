@@ -19,8 +19,10 @@
       "children": [
         { "path": "<PRODUCTS>/MyApp.app", "id": "000000000000000000000120", "type": "wrapper.application", "index": false },
         { "path": "<PRODUCTS>/MyAppTests.xctest", "id": "000000000000000000000121", "type": "wrapper.cfbundle", "index": false },
+        { "path": "<PRODUCTS>/AnewLinkWidget.appex", "id": "806147D830A43CD100778761", "type": "wrapper.app-extension", "index": false, "target-membership": [ { "build-phase": "MyApp/copy/Embed Foundation Extensions", "header-preservation": "remove-on-copy" } ] },
       ],
     },
+    { "kind": "folder", "path": "AnewLinkWidget", "target-membership": [ "AnewLinkWidget" ] },
   ],
   "targets": [
     {
@@ -28,10 +30,18 @@
       "id": "000000000000000100000000",
       "product": "Products/MyApp.app",
       "product-type": "application",
+      "dependencies": [
+        "AnewLinkWidget",
+      ],
       "build-phases": [
         "compile-sources",
         "frameworks",
         "resources",
+        {
+          "kind": "copy",
+          "name": "Embed Foundation Extensions",
+          "bundle-base-path": "plugins-directory",
+        },
       ],
       "build-settings": {
         "ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES": "AppIcon-Sunrise AppIcon-Night",
@@ -109,6 +119,38 @@
         "SWIFT_VERSION": "5.0",
         "TARGETED_DEVICE_FAMILY": "1,2,7",
         "TEST_HOST": "$(BUILT_PRODUCTS_DIR)/MyApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/MyApp",
+      },
+    }, {
+      "name": "AnewLinkWidget",
+      "id": "806147D730A43CD100778761",
+      "product": "Products/AnewLinkWidget.appex",
+      "product-type": "app-extension",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+      ],
+      "build-settings": {
+        "CODE_SIGN_ENTITLEMENTS": "Config/AnewLinkWidget.entitlements",
+        "CODE_SIGN_STYLE": "Automatic",
+        "CURRENT_PROJECT_VERSION": "1",
+        "DEVELOPMENT_TEAM": "WVWWUXQ867",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "Config/AnewLinkWidget-Info.plist",
+        "INFOPLIST_KEY_CFBundleDisplayName": "Anew Link",
+        "LD_RUNPATH_SEARCH_PATHS": "@executable_path/Frameworks @executable_path/../../Frameworks",
+        "MARKETING_VERSION": "1.0",
+        "PRODUCT_BUNDLE_IDENTIFIER": "com.donut32.anew-link.widget",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "SDKROOT": "iphoneos",
+        "SKIP_INSTALL": "YES",
+        "SUPPORTED_PLATFORMS": "iphoneos iphonesimulator",
+        "SWIFT_APPROACHABLE_CONCURRENCY": "YES",
+        "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
+        "SWIFT_EMIT_LOC_STRINGS": "YES",
+        "SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY": "YES",
+        "SWIFT_VERSION": "5.0",
+        "TARGETED_DEVICE_FAMILY": "1,2",
       },
     },
   ],

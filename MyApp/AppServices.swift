@@ -26,7 +26,10 @@ final class AppServices {
     func start() {
         Self.shared = self
         nowPlaying.attach(to: connection)
-        connection.onBatteryRead = { [weak self] percent in self?.batteryWarning.batteryRead(percent) }
+        connection.onBatteryRead = { [weak self] percent in
+            self?.batteryWarning.batteryRead(percent)
+            BandBatteryShare.save(percent)
+        }
 
         // The band's requests (spec section 6). Only these five are answered.
         connection.onBandRequest = { [weak self] request in

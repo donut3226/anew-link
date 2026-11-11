@@ -7,6 +7,8 @@ struct ContentView: View {
     var body: some View {
         #if DEBUG
         // Debug only: `-demoScreen <name>` opens one screen with demo data, for simulator checks.
+        // `-demoBattery <percent>` puts a made-up reading in the widget's shared storage.
+        let _ = UserDefaults.standard.object(forKey: "demoBattery").map { BandBatteryShare.save(($0 as? Int) ?? Int("\($0)") ?? 50) }
         if let screen = UserDefaults.standard.string(forKey: "demoScreen") {
             DemoScreen(name: screen)
         } else {

@@ -258,7 +258,7 @@ Next: build the flow, then open external TestFlight and invite stuck owners to t
 | Account, Suica, Edy, iD/QUICPay, Alexa, Qrio, Riiiver, MAMORIO, firmware | Can't come back | - |
 
 Ways Anew Link can beat Sony's app:
-- **Low battery warning on the iPhone** when the band drops to 20% (built 10 Nov 2026, off by default, once per charge). A battery widget is not built: it needs a widget extension target and an App Group, both new identifiers on the paid team.
+- **Low battery warning on the iPhone** when the band drops to 20% (built 10 Nov 2026, off by default, once per charge). A battery widget (built 11 Nov 2026): Home Screen and Lock Screen sizes, showing the last reading, shared through the App Group `group.com.donut32.anew-link`.
 - **Find my band:** a button and a Shortcuts action ("Find My Band", also by Siri) that sends the test notification with the siren pattern, 3 times (built 10 Nov 2026).
 - **Focus sync:** a Shortcuts action "Set Band Do Not Disturb" (on or off) for Focus automations (built 10 Nov 2026). On = `14 01 00 00 17 3B` (all day, 00:00-23:59, **UNVERIFIED** that the band treats that as all day); off = the user's own do not disturb setting.
 - **Notification list from your phone:** pick from common apps rather than typing names, with sensible defaults for a reset band (built 10 Nov 2026).

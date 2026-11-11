@@ -165,6 +165,8 @@ Source: the two PacketLogger captures of Sony's app (section 15), which each ran
 
 Steps and heart rate (types 0 and 1) matched section 7 exactly in the same captures.
 
+**Calories, checked against the band (11 Nov 2026).** The app summed 427 kcal (at 1/1000 kcal) over 582 logged minutes, 00:00 to 18:02; the band's Calorie screen showed 834. The band was off for about 500 minutes overnight (auto power off), and Sony's help guide (pages 17-18) says activity logging stops while the band is off. The guide (pages 9, 22-23) also says the Calorie number is the day's total including basal metabolism worked out from height, weight, sex and age, and that the "3h" chart shows the last 3 hours in 5-minute bars (0-160 kcal). Two readings fit: the unit is 1/512 kcal and the band counts only logged minutes, or the unit is 1/1000 kcal and the band adds basal calories for the hours it was off. A sync about an hour after the band switches on tells them apart (ratio about 2 means 1/512; ratio about 5 to 9 means 1/1000 plus off-time basal). Calories stay out of Apple Health until then.
+
 Known data quality issues from the author and issue tracker: sleep data is flaky, VO2 stopped reporting on the author's band at one point, and an early version had a bug (caught in PR review) where multiple VO2 samples with the same timestamp overwrote each other in its database. Our own storage should not key samples by timestamp alone for data types that can repeat.
 
 ## 8. Notification packets (reference only)

@@ -21,6 +21,10 @@ nonisolated struct ActivitySummary: Equatable {
     var vo2Max: Int?
     /// Calories since midnight in kcal, assuming the band counts 1/1000 kcal (UNVERIFIED, spec 7.1).
     var caloriesToday: Int?
+    /// Which part of today the calorie minutes cover (to check the total against the band's screen).
+    var caloriesFrom: Date?
+    var caloriesTo: Date?
+    var calorieMinutes = 0
 
     /// - Parameters:
     ///   - now: when the sync happened.
@@ -47,6 +51,9 @@ nonisolated struct ActivitySummary: Equatable {
         latestStress = Self.latest(.stress, in: samples)
         vo2Max = Self.latest(.vo2, in: samples)
         let calories = samples.filter { $0.type == .calories && $0.date >= midnight }
+        calorieMinutes = calories.count
+        caloriesFrom = calories.map(\.date).min()
+        caloriesTo = calories.map(\.date).max()
         if !calories.isEmpty {
             caloriesToday = Int((Double(calories.reduce(0) { $0 + $1.value }) / 1000).rounded())
         }

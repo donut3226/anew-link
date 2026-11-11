@@ -676,6 +676,9 @@ struct BandStatusContent: View {
             }
             if let calories = summary.caloriesToday {
                 LabeledContent("Calories today (unconfirmed)", value: "\(calories) kcal")
+                if let from = summary.caloriesFrom, let to = summary.caloriesTo {
+                    LabeledContent("Calorie data", value: "\(Self.clock(from))-\(Self.clock(to)), \(summary.calorieMinutes) min")
+                }
             }
             LabeledContent("Newest sample", value: Self.newestSampleText(summary))
             #if DEBUG

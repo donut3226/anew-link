@@ -63,5 +63,8 @@ struct ActivitySummaryTests {
         #expect(summary.vo2Max == 43)
         #expect(summary.latestStress == nil)
         #expect(summary.caloriesToday == 3)       // 2500 / 1000, rounded
+        #expect(summary.calorieMinutes == 2)
+        #expect(summary.caloriesFrom == midnight.addingTimeInterval(60))
+        #expect(summary.caloriesTo == midnight.addingTimeInterval(120))
     }
 }

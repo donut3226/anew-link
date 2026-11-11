@@ -31,7 +31,7 @@ Build a free, open-source, non-profit iOS companion app for the Sony Wena 3 smar
 
 - **Activity sync needs firmware 2.40** (Gadgetbridge issue #4079). Older firmware sends malformed activity packets, which is a band firmware bug, not an app bug.
 - Firmware names look like `1.02JP`, `2.30JP`, `2.40JP`. They can be read from the band (8-byte ASCII name in device info).
-- Sony firmware updates needed Sony's servers, which are down. The update path (Ambiq AMOTA, a .pack file inside the Sony Android app) is high risk and **out of scope**.
+- Sony firmware updates did not need Sony's servers once the app was installed: the 2.40JP image is bundled in Sony's Android app 3.20 (`assets/firmware/WN3_231127_240JP.pack`, found 11 Nov 2026, spec 16). It is encrypted, so it can't be modified, only sent as-is over Ambiq's AMOTA. Updating other owners' bands stays **out of scope** and high risk; the owner may experiment on a spare band only.
 - **Confirmed 8 Nov 2026: the owner's band reports FW VER 2.40JP on its own screen**, so activity sync should be possible. The band is also visible in nRF Connect as a Sony (company ID 0x012D) advertiser that disappears when the band screen turns off, but it showed as non-connectable with no name, so it may be bonded to or connected with an iPhone.
 - So: check the band's firmware first. If it is below 2.40, activity data is off the table and the app focuses on time, weather, settings and calendar.
 

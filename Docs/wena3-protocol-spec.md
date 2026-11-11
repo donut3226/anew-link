@@ -510,3 +510,11 @@ Anew Link sends `0x18` and `0x19` from drag-to-reorder lists, always with every 
 **Activity settings** (birth date, gender, height, weight, resting heart rate, step goal) were viewed but not changed. The resting heart rate does not appear in any packet seen so far.
 
 **Opening Sony's app** sends the full notification list, `12 01 01`, `04`, time, time zone, the calendar and a short activity sync, every time.
+
+## 16. Firmware file (found 11 Nov 2026, read only)
+
+Source: Sony's wena 3 Android app `jp.co.sony.wena3` version 3.20 (APKPure XAPK, downloaded by the owner). The firmware sits in the base APK at `assets/firmware/WN3_231127_240JP.pack`: 763,376 bytes, SHA-256 `3afb8414bb313a9dd63553eb3d93bba95803981d16ab3b7dc676c65c57bbf9c8`. The name reads as firmware 2.40JP built 27 Nov 2023, the same version as the owner's band. The file itself is Sony's and is never committed here.
+
+- **Header (48 bytes, little-endian words):** `0`, `0x4000` (most likely the load address), `0xBA5C0` (payload length: exactly the 763,328 bytes that follow), `0x3D9E4B0C` (a checksum; it is not plain CRC-32 of the payload, so probably over the decrypted image), then `0`, three `0xFFFFFFFF`, three `0`, `0xFFFFFFFF`. This looks like an Ambiq OTA image header, which fits the Gadgetbridge note that Sony uses Ambiq's AMOTA update protocol.
+- **Payload is encrypted:** entropy is 8.0 bits per byte in every 64 KB block and there are no readable strings. The band's bootloader presumably decrypts it with a key held on the chip. So the image can likely be sent to a band as-is, but it cannot be read, patched or modified without that key. Firmware modding is not realistic.
+- **Not known yet:** the BLE service and packet format Sony's app uses to send it (AMOTA over which characteristic), and whether a band below 2.40 accepts it without Sony's app. Untested; never send it to the owner's main band.
